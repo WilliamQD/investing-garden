@@ -151,34 +151,10 @@
       <div class="panel-header">
         <h2>Resource Vault</h2>
         <p>Curated links, courses, and tools with my own notes.</p>
+        <button class="add-button" data-type="resource">+ Add Resource</button>
       </div>
-      <div class="card-grid">
-        <article class="card">
-          <h3>Foundations</h3>
-          <ul class="card-list">
-            <li><span>↗</span> Bogleheads wiki – long-term basics</li>
-            <li><span>↗</span> r/investing wiki – practical FAQ</li>
-            <li><span>↗</span> Ben Felix videos – factor investing</li>
-          </ul>
-          <p class="card-meta">Add links + your own commentary.</p>
-        </article>
-
-        <article class="card">
-          <h3>AI & semiconductors</h3>
-          <ul class="card-list">
-            <li><span>↗</span> SemiAnalysis – AI hardware deep dives</li>
-            <li><span>↗</span> Stratechery – tech strategy</li>
-            <li><span>↗</span> Company filings & earnings calls</li>
-          </ul>
-        </article>
-
-        <article class="card">
-          <h3>Tools</h3>
-          <p>
-            Screens, simulators, notebooks, and anything else that helps me
-            understand businesses instead of just watching tickers.
-          </p>
-        </article>
+      <div class="card-grid" id="resources-grid">
+        <!-- Dynamic resources will be added here -->
       </div>
     </section>
   </main>
@@ -190,6 +166,45 @@
       recommendation engine.
     </p>
   </footer>
+
+  <!-- Modal for adding/editing entries -->
+  <div id="entry-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title">Add Entry</h3>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <form id="entry-form">
+        <input type="hidden" id="entry-id">
+        <input type="hidden" id="entry-type">
+        
+        <div class="form-group">
+          <label for="entry-title">Title</label>
+          <input type="text" id="entry-title" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="entry-content">Content</label>
+          <textarea id="entry-content" rows="6" required></textarea>
+        </div>
+        
+        <div class="form-group" id="url-group" style="display: none;">
+          <label for="entry-url">URL (optional)</label>
+          <input type="url" id="entry-url" placeholder="https://example.com">
+        </div>
+        
+        <div class="form-group" id="tags-group" style="display: none;">
+          <label for="entry-tags">Tags (comma-separated)</label>
+          <input type="text" id="entry-tags" placeholder="valuation, AI, notes">
+        </div>
+        
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" id="cancel-btn">Cancel</button>
+          <button type="submit" class="btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <script src="main.js"></script>
 </body>
