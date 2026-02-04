@@ -19,6 +19,7 @@ export default function Section({ type, title, description }: SectionProps) {
 
   useEffect(() => {
     fetchEntries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
 
   const fetchEntries = async () => {
@@ -80,16 +81,28 @@ export default function Section({ type, title, description }: SectionProps) {
     setIsModalOpen(true);
   };
 
+  const headerAccent = type === 'journal' ? '🧭 Log' : type === 'learning' ? '📚 Plan' : '🗂️ Archive';
+  const introTone =
+    type === 'journal'
+      ? 'Capture trades, reasons, and feelings. Revisit to refine process.'
+      : type === 'learning'
+        ? 'Set weekly focuses, track progress, and mark breakthroughs.'
+        : 'Save links with quick notes and tags for fast retrieval.';
+
   return (
     <>
-      <div className="panel-header">
-        <h2>{title}</h2>
-        <p>{description}</p>
+      <div className={`panel-header panel-${type}`}>
+        <div>
+          <p className="eyebrow-alt">{headerAccent}</p>
+          <h2>{title}</h2>
+          <p>{description}</p>
+          <p className="panel-sub">{introTone}</p>
+        </div>
         <button className="add-button" onClick={handleAddNew}>
           + Add {type === 'journal' ? 'Journal Entry' : type === 'learning' ? 'Learning Note' : 'Resource'}
         </button>
       </div>
-      <div className="card-grid">
+      <div className={`card-grid card-grid-${type}`}>
         {loading ? (
           <p className="loading-message">Loading...</p>
         ) : entries.length === 0 ? (

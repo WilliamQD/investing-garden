@@ -11,9 +11,14 @@ interface EntryCardProps {
 
 export default function EntryCard({ entry, onEdit, onDelete, type }: EntryCardProps) {
   return (
-    <article className="card">
+    <article className={`card card-${type}`}>
       <div className="card-header-actions">
-        <h3>{entry.title}</h3>
+        <div className="card-title-wrap">
+          <span className="card-chip">
+            {type === 'journal' ? 'Trade note' : type === 'learning' ? 'Learning task' : 'Resource'}
+          </span>
+          <h3>{entry.title}</h3>
+        </div>
         <div className="card-actions">
           <button className="action-btn" onClick={onEdit} title="Edit">
             ✏️

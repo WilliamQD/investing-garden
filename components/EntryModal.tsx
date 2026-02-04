@@ -18,13 +18,14 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
   const [tags, setTags] = useState('');
 
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+    setTimeout(() => {
       setTitle(entry?.title || '');
       setContent(entry?.content || '');
       setUrl(entry?.url || '');
       setTags(entry?.tags?.join(', ') || '');
-    }
-  }, [isOpen, entry]);
+    }, 0);
+  }, [isOpen, entry?.title, entry?.content, entry?.url, entry?.tags]);
 
   if (!isOpen) return null;
 
