@@ -19,10 +19,12 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
 
   useEffect(() => {
     if (!isOpen) return;
-    setTitle(entry?.title || '');
-    setContent(entry?.content || '');
-    setUrl(entry?.url || '');
-    setTags(entry?.tags?.join(', ') || '');
+    setTimeout(() => {
+      setTitle(entry?.title || '');
+      setContent(entry?.content || '');
+      setUrl(entry?.url || '');
+      setTags(entry?.tags?.join(', ') || '');
+    }, 0);
   }, [isOpen, entry?.title, entry?.content, entry?.url, entry?.tags]);
 
   if (!isOpen) return null;
