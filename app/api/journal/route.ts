@@ -14,13 +14,13 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { title, content, tags } = body;
+    const { title, content, outcome, emotion, tags } = body;
 
     if (!title || !content) {
       return NextResponse.json({ error: 'Title and content are required' }, { status: 400 });
     }
 
-    const entry = storage.create('journal', { title, content, tags });
+    const entry = storage.create('journal', { title, content, outcome, emotion, tags });
     return NextResponse.json(entry, { status: 201 });
   } catch (error) {
     console.error('Error creating journal entry:', error);

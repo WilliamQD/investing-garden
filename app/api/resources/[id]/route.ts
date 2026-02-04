@@ -25,9 +25,9 @@ export async function PUT(
   const { id } = await params;
   try {
     const body = await request.json();
-    const { title, content, url, tags } = body;
+    const { title, content, url, sourceType, tags } = body;
 
-    const entry = storage.update('resources', id, { title, content, url, tags });
+    const entry = storage.update('resources', id, { title, content, url, sourceType, tags });
     if (!entry) {
       return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
     }
