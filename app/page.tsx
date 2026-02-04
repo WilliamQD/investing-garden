@@ -8,24 +8,22 @@ type AccountPoint = { date: string; value: number };
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState<SectionKey>('home');
-  const [accountPoints, setAccountPoints] = useState<AccountPoint[]>([]);
-  const [newDate, setNewDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [newValue, setNewValue] = useState('3000');
-  const currentYear = new Date().getFullYear();
-
-  useEffect(() => {
+  const [accountPoints, setAccountPoints] = useState<AccountPoint[]>(() => {
+    if (typeof window === 'undefined') return [];
     const saved = localStorage.getItem('accountValues');
     if (saved) {
       try {
-        setAccountPoints(JSON.parse(saved));
-        return;
+        return JSON.parse(saved);
       } catch (err) {
         console.error('Failed to parse saved account values', err);
       }
     }
     const today = new Date().toISOString().slice(0, 10);
-    setAccountPoints([{ date: today, value: 3000 }]);
-  }, []);
+    return [{ date: today, value: 3000 }];
+  });
+  const [newDate, setNewDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [newValue, setNewValue] = useState('3000');
+  const currentYear = new Date().getFullYear();
 
   useEffect(() => {
     if (accountPoints.length) {

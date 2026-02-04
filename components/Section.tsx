@@ -19,6 +19,7 @@ export default function Section({ type, title, description }: SectionProps) {
 
   useEffect(() => {
     fetchEntries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
 
   const fetchEntries = async () => {
