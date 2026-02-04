@@ -27,6 +27,13 @@ export async function PUT(
     const body = await request.json();
     const { title, content, url, sourceType, tags } = body;
 
+    if (!title || !content || !url || !url.trim()) {
+      return NextResponse.json(
+        { error: 'Title, content, and URL are required' },
+        { status: 400 }
+      );
+    }
+
     const entry = storage.update('resources', id, { title, content, url, sourceType, tags });
     if (!entry) {
       return NextResponse.json({ error: 'Entry not found' }, { status: 404 });

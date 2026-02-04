@@ -21,6 +21,21 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
   const [nextStep, setNextStep] = useState('');
   const [sourceType, setSourceType] = useState('Article');
   const [tags, setTags] = useState('');
+  const titleLabelMap = {
+    journal: 'Trade / setup',
+    learning: 'Learning focus',
+    resources: 'Resource title',
+  } as const;
+  const titlePlaceholderMap = {
+    journal: 'NVDA call spread',
+    learning: 'Study semiconductor supply chain',
+    resources: 'Nvidia Q4 earnings call',
+  } as const;
+  const contentLabelMap = {
+    journal: 'Trade notes',
+    learning: 'Progress notes',
+    resources: 'Summary',
+  } as const;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -33,7 +48,7 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
       setGoal(entry?.goal || '');
       setNextStep(entry?.nextStep || '');
       setSourceType(entry?.sourceType || 'Article');
-      setTags(type === 'learning' ? '' : entry?.tags?.join(', ') || '');
+      setTags(entry?.tags?.join(', ') || '');
     }, 0);
   }, [
     isOpen,
@@ -46,23 +61,24 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
     entry?.nextStep,
     entry?.sourceType,
     entry?.tags,
-    type,
   ]);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const basePayload = {
+    const basePayload: { title: string; content: string; tags?: string[] } = {
       title,
       content,
-      tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : undefined,
     };
 
-    onSave({
+    const payload = {
       ...basePayload,
+      ...(type !== 'learning' && {
+        tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : undefined,
+      }),
       ...(type === 'resources' && {
-        url: url || undefined,
+        url: url?.trim() || undefined,
         sourceType: sourceType || undefined,
       }),
       ...(type === 'journal' && {
@@ -73,7 +89,9 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
         goal: goal || undefined,
         nextStep: nextStep || undefined,
       }),
-    });
+    };
+
+    onSave(payload);
     setTitle('');
     setContent('');
     setUrl('');
@@ -82,9 +100,7 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
     setGoal('');
     setNextStep('');
     setSourceType('Article');
-    if (type !== 'learning') {
-      setTags('');
-    }
+    setTags('');
   };
 
   return (
@@ -98,19 +114,11 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
         </div>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="entry-title">
-              {type === 'journal' ? 'Trade / setup' : type === 'learning' ? 'Learning focus' : 'Resource title'}
-            </label>
+            <label htmlFor="entry-title">{titleLabelMap[type]}</label>
             <input
               type="text"
               id="entry-title"
-              placeholder={
-                type === 'journal'
-                  ? 'NVDA call spread'
-                  : type === 'learning'
-                    ? 'Study semiconductor supply chain'
-                    : 'Nvidia Q4 earnings call'
-              }
+              placeholder={titlePlaceholderMap[type]}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
@@ -118,9 +126,7 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
           </div>
           
           <div className="form-group">
-            <label htmlFor="entry-content">
-              {type === 'journal' ? 'Trade notes' : type === 'learning' ? 'Progress notes' : 'Summary'}
-            </label>
+            <label htmlFor="entry-content">{contentLabelMap[type]}</label>
             <textarea
               id="entry-content"
               rows={6}

@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { title, content, url, sourceType, tags } = body;
 
-    if (!title || !content || !url) {
+    if (!title || !content || !url || !url.trim()) {
       return NextResponse.json(
         { error: 'Title, content, and URL are required' },
         { status: 400 }

@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const entry = storage.create('learning', { title, content, goal, nextStep });
     return NextResponse.json(entry, { status: 201 });
   } catch (error) {
-    console.error('Error creating journal entry:', error);
+    console.error('Error creating learning entry:', error);
     return NextResponse.json({ error: 'Failed to create entry' }, { status: 500 });
   }
 }
