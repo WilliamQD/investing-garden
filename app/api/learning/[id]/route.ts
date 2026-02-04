@@ -25,9 +25,13 @@ export async function PUT(
   const { id } = await params;
   try {
     const body = await request.json();
-    const { title, content, tags } = body;
+    const { title, content, goal, nextStep } = body;
 
-    const entry = storage.update('learning', id, { title, content, tags });
+    if (!title || !content) {
+      return NextResponse.json({ error: 'Title and content are required' }, { status: 400 });
+    }
+
+    const entry = storage.update('learning', id, { title, content, goal, nextStep });
     if (!entry) {
       return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
     }

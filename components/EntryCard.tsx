@@ -10,6 +10,11 @@ interface EntryCardProps {
 }
 
 export default function EntryCard({ entry, onEdit, onDelete, type }: EntryCardProps) {
+  const detailLabel =
+    type === 'journal' ? 'Outcome' : type === 'learning' ? 'Goal' : 'Type';
+  const detailValue =
+    type === 'journal' ? entry.outcome : type === 'learning' ? entry.goal : entry.sourceType;
+
   return (
     <article className={`card card-${type}`}>
       <div className="card-header-actions">
@@ -36,6 +41,21 @@ export default function EntryCard({ entry, onEdit, onDelete, type }: EntryCardPr
         })}
       </p>
       <p className="card-content">{entry.content}</p>
+      {detailValue && (
+        <p className="card-detail">
+          <span>{detailLabel}:</span> {detailValue}
+        </p>
+      )}
+      {type === 'journal' && entry.emotion && (
+        <p className="card-detail">
+          <span>Emotion:</span> {entry.emotion}
+        </p>
+      )}
+      {type === 'learning' && entry.nextStep && (
+        <p className="card-detail">
+          <span>Next:</span> {entry.nextStep}
+        </p>
+      )}
       {entry.url && type === 'resources' && (
         <a href={entry.url} target="_blank" rel="noopener noreferrer" className="card-link">
           <span>↗</span> {entry.url}

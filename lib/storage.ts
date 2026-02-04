@@ -13,6 +13,11 @@ export interface Entry {
   title: string;
   content: string;
   url?: string;
+  outcome?: string;
+  emotion?: string;
+  goal?: string;
+  nextStep?: string;
+  sourceType?: string;
   tags?: string[];
   createdAt: string;
   updatedAt: string;

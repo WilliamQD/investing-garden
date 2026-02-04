@@ -14,13 +14,16 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { title, content, url, tags } = body;
+    const { title, content, url, sourceType, tags } = body;
 
-    if (!title || !content) {
-      return NextResponse.json({ error: 'Title and content are required' }, { status: 400 });
+    if (!title || !content || !url || !url.trim()) {
+      return NextResponse.json(
+        { error: 'Title, content, and URL are required' },
+        { status: 400 }
+      );
     }
 
-    const entry = storage.create('resources', { title, content, url, tags });
+    const entry = storage.create('resources', { title, content, url, sourceType, tags });
     return NextResponse.json(entry, { status: 201 });
   } catch (error) {
     console.error('Error creating resource entry:', error);

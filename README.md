@@ -59,8 +59,8 @@ npm start
 
 1. Click the navigation buttons (Journal, Learning, Resources) to switch sections
 2. Click the "+ Add [Entry Type]" button in any section
-3. Fill in the title, content, and optional tags
-4. For resources, you can also add a URL
+3. Fill in the section-specific fields (trade outcome + emotion, learning goals + next steps, or resource URL + type)
+4. Add tags for journal/resource entries if desired
 5. Click "Save" to create the entry
 
 ### Editing Entries
