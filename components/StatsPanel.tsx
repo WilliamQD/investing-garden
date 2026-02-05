@@ -14,6 +14,8 @@ interface StatsPayload {
   topTags: TagCount[];
 }
 
+const HEATMAP_DAYS = 56;
+
 export default function StatsPanel() {
   const [stats, setStats] = useState<StatsPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,7 +75,7 @@ export default function StatsPanel() {
       (stats?.activity ?? []).map(item => [item.date, item.count])
     );
     const cells: { date: string; count: number; level: number }[] = [];
-    for (let i = 55; i >= 0; i -= 1) {
+    for (let i = HEATMAP_DAYS - 1; i >= 0; i -= 1) {
       const date = new Date();
       date.setDate(date.getDate() - i);
       const key = date.toISOString().slice(0, 10);

@@ -188,13 +188,20 @@ class Storage {
   ): Promise<Entry | null> {
     await ensureTables();
     const now = new Date().toISOString();
+    let existing: Entry | undefined;
+    if (updates.title == null || updates.content == null) {
+      existing = await this.getById(type, id);
+      if (!existing) return null;
+    }
+    const title = updates.title ?? existing?.title ?? '';
+    const content = updates.content ?? existing?.content ?? '';
 
     let result;
     if (type === 'journal') {
       result = await sql`
         UPDATE journal_entries
-        SET title = ${updates.title ?? ''},
-            content = ${updates.content ?? ''},
+        SET title = ${title},
+            content = ${content},
             outcome = ${updates.outcome ?? null},
             emotion = ${updates.emotion ?? null},
             tags = ${updates.tags ? JSON.stringify(updates.tags) : null},
@@ -206,8 +213,8 @@ class Storage {
     } else if (type === 'learning') {
       result = await sql`
         UPDATE learning_entries
-        SET title = ${updates.title ?? ''},
-            content = ${updates.content ?? ''},
+        SET title = ${title},
+            content = ${content},
             goal = ${updates.goal ?? null},
             next_step = ${updates.nextStep ?? null},
             updated_at = ${now}
@@ -217,8 +224,8 @@ class Storage {
     } else {
       result = await sql`
         UPDATE resource_entries
-        SET title = ${updates.title ?? ''},
-            content = ${updates.content ?? ''},
+        SET title = ${title},
+            content = ${content},
             url = ${updates.url ?? ''},
             source_type = ${updates.sourceType ?? null},
             tags = ${updates.tags ? JSON.stringify(updates.tags) : null},
@@ -257,7 +264,7 @@ class Storage {
     }
     for (const entry of entries) {
       const trimmedId = entry.id?.trim();
-      if (entry.id && trimmedId === '') {
+      if (entry.id && !trimmedId) {
         console.warn('Backup entry missing id; generating a new one.');
       }
       const entryId = trimmedId ? trimmedId : randomUUID();

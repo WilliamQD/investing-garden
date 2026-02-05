@@ -12,11 +12,20 @@ export async function GET() {
   try {
     await storage.initialize();
 
-    const [journalCount, learningCount, resourceCount] = await Promise.all([
-      sql`SELECT COUNT(*)::int AS count FROM journal_entries`,
-      sql`SELECT COUNT(*)::int AS count FROM learning_entries`,
-      sql`SELECT COUNT(*)::int AS count FROM resource_entries`,
-    ]);
+    const totalsResult = await sql`
+      SELECT 'journal' AS type, COUNT(*)::int AS count FROM journal_entries
+      UNION ALL
+      SELECT 'learning' AS type, COUNT(*)::int AS count FROM learning_entries
+      UNION ALL
+      SELECT 'resources' AS type, COUNT(*)::int AS count FROM resource_entries
+    `;
+    const totals = totalsResult.rows.reduce(
+      (acc, row) => {
+        acc[row.type] = getCount(row.count);
+        return acc;
+      },
+      { journal: 0, learning: 0, resources: 0 } as Record<string, number>
+    );
 
     const outcomeRows = await sql`
       SELECT outcome, COUNT(*)::int AS count
@@ -69,9 +78,9 @@ export async function GET() {
 
     return NextResponse.json({
       totals: {
-        journal: getCount(journalCount.rows[0]?.count),
-        learning: getCount(learningCount.rows[0]?.count),
-        resources: getCount(resourceCount.rows[0]?.count),
+        journal: totals.journal,
+        learning: totals.learning,
+        resources: totals.resources,
       },
       outcomes: {
         win: outcomes.win,

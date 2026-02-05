@@ -11,6 +11,11 @@ type BackupPayload = {
   resources: Entry[];
 };
 
+const INVALID_FORMAT_MESSAGE =
+  'Invalid backup format: expected an object with journal, learning, and resources keys.';
+const MISSING_KEYS_MESSAGE =
+  'Backup must include journal, learning, and resources keys.';
+
 const normalizePayload = (payload: Record<string, unknown>): BackupPayload => ({
   journal: (payload.journal as Entry[]) ?? [],
   learning: (payload.learning as Entry[]) ?? [],
@@ -89,20 +94,20 @@ export async function POST(request: Request) {
       const text = new TextDecoder().decode(buffer);
       const parsed = JSON.parse(text);
       if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
-        return NextResponse.json({ error: 'Backup must include journal, learning, and resources keys.' }, { status: 400 });
+        return NextResponse.json({ error: INVALID_FORMAT_MESSAGE }, { status: 400 });
       }
       if (!hasRequiredKeys(parsed as Record<string, unknown>)) {
-        return NextResponse.json({ error: 'Backup must include journal, learning, and resources keys.' }, { status: 400 });
+        return NextResponse.json({ error: MISSING_KEYS_MESSAGE }, { status: 400 });
       }
       payload = normalizePayload(parsed as Record<string, unknown>);
     }
   } else {
     const body = await request.json();
     if (!body || Array.isArray(body) || typeof body !== 'object') {
-      return NextResponse.json({ error: 'Backup must include journal, learning, and resources keys.' }, { status: 400 });
+      return NextResponse.json({ error: INVALID_FORMAT_MESSAGE }, { status: 400 });
     }
     if (!hasRequiredKeys(body as Record<string, unknown>)) {
-      return NextResponse.json({ error: 'Backup must include journal, learning, and resources keys.' }, { status: 400 });
+      return NextResponse.json({ error: MISSING_KEYS_MESSAGE }, { status: 400 });
     }
     payload = normalizePayload(body as Record<string, unknown>);
   }
