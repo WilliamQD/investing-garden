@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Entry } from '@/lib/storage';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
+import type { Entry } from '@/lib/storage';
 
 interface EntryModalProps {
   isOpen: boolean;
@@ -17,6 +20,7 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
   const [url, setUrl] = useState('');
   const [outcome, setOutcome] = useState('');
   const [emotion, setEmotion] = useState('');
+  const [ticker, setTicker] = useState('');
   const [goal, setGoal] = useState('');
   const [nextStep, setNextStep] = useState('');
   const [sourceType, setSourceType] = useState('Article');
@@ -45,6 +49,7 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
       setUrl(entry?.url || '');
       setOutcome(entry?.outcome || '');
       setEmotion(entry?.emotion || '');
+      setTicker(entry?.ticker || '');
       setGoal(entry?.goal || '');
       setNextStep(entry?.nextStep || '');
       setSourceType(entry?.sourceType || 'Article');
@@ -57,6 +62,7 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
     entry?.url,
     entry?.outcome,
     entry?.emotion,
+    entry?.ticker,
     entry?.goal,
     entry?.nextStep,
     entry?.sourceType,
@@ -84,6 +90,7 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
       ...(type === 'journal' && {
         outcome: outcome || undefined,
         emotion: emotion || undefined,
+        ticker: ticker || undefined,
       }),
       ...(type === 'learning' && {
         goal: goal || undefined,
@@ -97,6 +104,7 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
     setUrl('');
     setOutcome('');
     setEmotion('');
+    setTicker('');
     setGoal('');
     setNextStep('');
     setSourceType('Article');
@@ -134,6 +142,15 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
               onChange={(e) => setContent(e.target.value)}
               required
             />
+            <p className="field-hint">Markdown formatting supported.</p>
+            <div className="markdown-preview">
+              <p className="preview-label">Preview</p>
+              <div className="markdown-content">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {content || '*Start typing to see the preview...*'}
+                </ReactMarkdown>
+              </div>
+            </div>
           </div>
 
           {type === 'journal' && (
@@ -160,6 +177,16 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
                   placeholder="Calm, anxious, confident..."
                   value={emotion}
                   onChange={(e) => setEmotion(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="entry-ticker">Ticker (optional)</label>
+                <input
+                  type="text"
+                  id="entry-ticker"
+                  placeholder="NVDA, AAPL"
+                  value={ticker}
+                  onChange={(e) => setTicker(e.target.value.toUpperCase())}
                 />
               </div>
             </>

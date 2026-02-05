@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Section from '@/components/Section';
 
-type SectionKey = 'home' | 'journal' | 'learning' | 'resources';
+import AuthControls from '@/components/AuthControls';
+import Section from '@/components/Section';
+import StatsPanel from '@/components/StatsPanel';
+
+type SectionKey = 'home' | 'journal' | 'learning' | 'resources' | 'stats';
 type AccountPoint = { date: string; value: number };
 
 export default function Home() {
@@ -89,32 +92,41 @@ export default function Home() {
         <div className="logo">
           WZ<span className="logo-dot">·</span><span className="logo-sub">LAB</span>
         </div>
-        <nav className="nav">
-          <button
-            className={`nav-link ${activeSection === 'home' ? 'active' : ''}`}
-            onClick={() => setActiveSection('home')}
-          >
-            Home
-          </button>
-          <button
-            className={`nav-link ${activeSection === 'journal' ? 'active' : ''}`}
-            onClick={() => setActiveSection('journal')}
-          >
-            Journal
-          </button>
-          <button
-            className={`nav-link ${activeSection === 'learning' ? 'active' : ''}`}
-            onClick={() => setActiveSection('learning')}
-          >
-            Learning
-          </button>
-          <button
-            className={`nav-link ${activeSection === 'resources' ? 'active' : ''}`}
-            onClick={() => setActiveSection('resources')}
-          >
-            Resources
-          </button>
-        </nav>
+        <div className="header-actions">
+          <nav className="nav">
+            <button
+              className={`nav-link ${activeSection === 'home' ? 'active' : ''}`}
+              onClick={() => setActiveSection('home')}
+            >
+              Home
+            </button>
+            <button
+              className={`nav-link ${activeSection === 'journal' ? 'active' : ''}`}
+              onClick={() => setActiveSection('journal')}
+            >
+              Journal
+            </button>
+            <button
+              className={`nav-link ${activeSection === 'learning' ? 'active' : ''}`}
+              onClick={() => setActiveSection('learning')}
+            >
+              Learning
+            </button>
+            <button
+              className={`nav-link ${activeSection === 'resources' ? 'active' : ''}`}
+              onClick={() => setActiveSection('resources')}
+            >
+              Resources
+            </button>
+            <button
+              className={`nav-link ${activeSection === 'stats' ? 'active' : ''}`}
+              onClick={() => setActiveSection('stats')}
+            >
+              Stats
+            </button>
+          </nav>
+          <AuthControls />
+        </div>
       </header>
 
       <main className="wrapper">
@@ -239,6 +251,10 @@ export default function Home() {
               description="Links, papers, videos, and tools with quick notes and tags."
             />
           )}
+        </section>
+
+        <section className={`panel ${activeSection === 'stats' ? 'panel-active' : ''}`}>
+          {activeSection === 'stats' && <StatsPanel />}
         </section>
       </main>
 

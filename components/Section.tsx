@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Entry } from '@/lib/storage';
+import { useSession } from 'next-auth/react';
+
+import type { Entry } from '@/lib/storage';
 import EntryCard from './EntryCard';
 import EntryModal from './EntryModal';
 
@@ -18,6 +20,9 @@ export default function Section({ type, title, description }: SectionProps) {
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [selectedTag, setSelectedTag] = useState<string>('');
+  const [authMessage, setAuthMessage] = useState('');
+  const { data: session } = useSession();
+  const isAuthenticated = Boolean(session?.user);
 
   useEffect(() => {
     fetchEntries();
@@ -38,12 +43,21 @@ export default function Section({ type, title, description }: SectionProps) {
 
   const handleSave = async (entryData: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
+      if (!isAuthenticated) {
+        setAuthMessage('Sign in to save changes.');
+        return;
+      }
       if (editingEntry) {
         const response = await fetch(`/api/${type}/${editingEntry.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(entryData),
+          credentials: 'include',
         });
+        if (response.status === 401) {
+          setAuthMessage('Sign in to update entries.');
+          return;
+        }
         const updatedEntry = await response.json();
         setEntries(entries.map(e => e.id === editingEntry.id ? updatedEntry : e));
       } else {
@@ -51,12 +65,18 @@ export default function Section({ type, title, description }: SectionProps) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(entryData),
+          credentials: 'include',
         });
+        if (response.status === 401) {
+          setAuthMessage('Sign in to add entries.');
+          return;
+        }
         const newEntry = await response.json();
         setEntries([...entries, newEntry]);
       }
       setIsModalOpen(false);
       setEditingEntry(undefined);
+      setAuthMessage('');
     } catch (error) {
       console.error('Error saving entry:', error);
     }
@@ -71,14 +91,30 @@ export default function Section({ type, title, description }: SectionProps) {
     if (!confirm('Are you sure you want to delete this entry?')) return;
     
     try {
-      await fetch(`/api/${type}/${id}`, { method: 'DELETE' });
+      if (!isAuthenticated) {
+        setAuthMessage('Sign in to delete entries.');
+        return;
+      }
+      const response = await fetch(`/api/${type}/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (response.status === 401) {
+        setAuthMessage('Sign in to delete entries.');
+        return;
+      }
       setEntries(entries.filter(e => e.id !== id));
+      setAuthMessage('');
     } catch (error) {
       console.error('Error deleting entry:', error);
     }
   };
 
   const handleAddNew = () => {
+    if (!isAuthenticated) {
+      setAuthMessage('Sign in to add new entries.');
+      return;
+    }
     setEditingEntry(undefined);
     setIsModalOpen(true);
   };
@@ -120,10 +156,16 @@ export default function Section({ type, title, description }: SectionProps) {
           <p>{description}</p>
           <p className="panel-sub">{introTone}</p>
         </div>
-        <button className="add-button" onClick={handleAddNew}>
+        <button className="add-button" onClick={handleAddNew} disabled={!isAuthenticated}>
           + Add {type === 'journal' ? 'Journal Entry' : type === 'learning' ? 'Learning Note' : 'Resource'}
         </button>
       </div>
+      {!isAuthenticated && (
+        <div className="auth-banner">
+          Sign in to add, edit, or delete entries. Reading is always available.
+        </div>
+      )}
+      {authMessage && <p className="auth-message">{authMessage}</p>}
       
       <div className="search-filter-bar">
         <input
@@ -170,6 +212,7 @@ export default function Section({ type, title, description }: SectionProps) {
               onEdit={() => handleEdit(entry)}
               onDelete={() => handleDelete(entry.id)}
               type={type}
+              canEdit={isAuthenticated}
             />
           ))
         )}
