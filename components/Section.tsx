@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useAdmin } from '@/lib/admin-client';
 
 import type { Entry } from '@/lib/storage';
 import EntryCard from './EntryCard';
@@ -21,8 +21,7 @@ export default function Section({ type, title, description }: SectionProps) {
   const [searchText, setSearchText] = useState('');
   const [selectedTag, setSelectedTag] = useState<string>('');
   const [authMessage, setAuthMessage] = useState('');
-  const { data: session } = useSession();
-  const isAuthenticated = Boolean(session?.user);
+  const { authHeaders, hasAdminToken } = useAdmin();
 
   useEffect(() => {
     fetchEntries();
@@ -43,19 +42,19 @@ export default function Section({ type, title, description }: SectionProps) {
 
   const handleSave = async (entryData: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      if (!isAuthenticated) {
-        setAuthMessage('Sign in to save changes.');
+      if (!hasAdminToken) {
+        setAuthMessage('Enter the admin token to save changes.');
         return;
       }
       if (editingEntry) {
         const response = await fetch(`/api/${type}/${editingEntry.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
           body: JSON.stringify(entryData),
           credentials: 'include',
         });
         if (response.status === 401) {
-          setAuthMessage('Sign in to update entries.');
+          setAuthMessage('Enter the admin token to update entries.');
           return;
         }
         const updatedEntry = await response.json();
@@ -63,12 +62,12 @@ export default function Section({ type, title, description }: SectionProps) {
       } else {
         const response = await fetch(`/api/${type}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
           body: JSON.stringify(entryData),
           credentials: 'include',
         });
         if (response.status === 401) {
-          setAuthMessage('Sign in to add entries.');
+          setAuthMessage('Enter the admin token to add entries.');
           return;
         }
         const newEntry = await response.json();
@@ -91,16 +90,17 @@ export default function Section({ type, title, description }: SectionProps) {
     if (!confirm('Are you sure you want to delete this entry?')) return;
     
     try {
-      if (!isAuthenticated) {
-        setAuthMessage('Sign in to delete entries.');
+      if (!hasAdminToken) {
+        setAuthMessage('Enter the admin token to delete entries.');
         return;
       }
       const response = await fetch(`/api/${type}/${id}`, {
         method: 'DELETE',
+        headers: authHeaders,
         credentials: 'include',
       });
       if (response.status === 401) {
-        setAuthMessage('Sign in to delete entries.');
+        setAuthMessage('Enter the admin token to delete entries.');
         return;
       }
       setEntries(entries.filter(e => e.id !== id));
@@ -111,8 +111,8 @@ export default function Section({ type, title, description }: SectionProps) {
   };
 
   const handleAddNew = () => {
-    if (!isAuthenticated) {
-      setAuthMessage('Sign in to add new entries.');
+    if (!hasAdminToken) {
+      setAuthMessage('Enter the admin token to add new entries.');
       return;
     }
     setEditingEntry(undefined);
@@ -156,13 +156,13 @@ export default function Section({ type, title, description }: SectionProps) {
           <p>{description}</p>
           <p className="panel-sub">{introTone}</p>
         </div>
-        <button className="add-button" onClick={handleAddNew} disabled={!isAuthenticated}>
+        <button className="add-button" onClick={handleAddNew} disabled={!hasAdminToken}>
           + Add {type === 'journal' ? 'Journal Entry' : type === 'learning' ? 'Learning Note' : 'Resource'}
         </button>
       </div>
-      {!isAuthenticated && (
+      {!hasAdminToken && (
         <div className="auth-banner">
-          Sign in to add, edit, or delete entries. Reading is always available.
+          Enter the admin token to add, edit, or delete entries. Reading is always available.
         </div>
       )}
       {authMessage && <p className="auth-message">{authMessage}</p>}
@@ -212,7 +212,7 @@ export default function Section({ type, title, description }: SectionProps) {
               onEdit={() => handleEdit(entry)}
               onDelete={() => handleDelete(entry.id)}
               type={type}
-              canEdit={isAuthenticated}
+              canEdit={hasAdminToken}
             />
           ))
         )}

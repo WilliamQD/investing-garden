@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useAdmin } from '@/lib/admin-client';
 
 type DailyCount = { date: string; count: number };
 type TagCount = { tag: string; count: number };
@@ -21,8 +21,7 @@ export default function StatsPanel() {
   const [loading, setLoading] = useState(true);
   const [backupMessage, setBackupMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const { data: session } = useSession();
-  const isAuthenticated = Boolean(session?.user);
+  const { authHeaders, hasAdminToken } = useAdmin();
 
   useEffect(() => {
     const loadStats = async () => {
@@ -87,12 +86,13 @@ export default function StatsPanel() {
   }, [stats]);
 
   const handleExport = async (format: 'json' | 'zip') => {
-    if (!isAuthenticated) {
-      setBackupMessage('Sign in to export backups.');
+    if (!hasAdminToken) {
+      setBackupMessage('Enter the admin token to export backups.');
       return;
     }
     setBackupMessage('Preparing backup...');
     const response = await fetch(`/api/backup?format=${format}`, {
+      headers: authHeaders,
       credentials: 'include',
     });
     if (!response.ok) {
@@ -115,8 +115,8 @@ export default function StatsPanel() {
   const handleRestore = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!isAuthenticated) {
-      setBackupMessage('Sign in to restore backups.');
+    if (!hasAdminToken) {
+      setBackupMessage('Enter the admin token to restore backups.');
       return;
     }
     setBackupMessage('Restoring backup...');
@@ -125,6 +125,7 @@ export default function StatsPanel() {
     const response = await fetch('/api/backup', {
       method: 'POST',
       body: formData,
+      headers: authHeaders,
       credentials: 'include',
     });
     if (!response.ok) {
@@ -223,10 +224,10 @@ export default function StatsPanel() {
               Export data to JSON or ZIP. Restore a backup to repopulate the database.
             </p>
             <div className="backup-actions">
-              <button className="btn-secondary" onClick={() => handleExport('json')} disabled={!isAuthenticated}>
+              <button className="btn-secondary" onClick={() => handleExport('json')} disabled={!hasAdminToken}>
                 Export JSON
               </button>
-              <button className="btn-secondary" onClick={() => handleExport('zip')} disabled={!isAuthenticated}>
+              <button className="btn-secondary" onClick={() => handleExport('zip')} disabled={!hasAdminToken}>
                 Export ZIP
               </button>
               <label className="file-upload">
@@ -234,7 +235,7 @@ export default function StatsPanel() {
                   type="file"
                   accept=".json,.zip"
                   onChange={handleRestore}
-                  disabled={!isAuthenticated}
+                  disabled={!hasAdminToken}
                 />
                 Restore from file
               </label>

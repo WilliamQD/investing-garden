@@ -173,6 +173,14 @@ body {
   color: var(--text-muted);
 }
 
+.auth-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
 .auth-button {
   padding: 0.4rem 0.9rem;
   border-radius: 999px;
@@ -190,6 +198,16 @@ body {
 .auth-button:hover {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.3);
+}
+
+.auth-input {
+  width: clamp(160px, 18vw, 220px);
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(15, 23, 42, 0.75);
+  color: var(--text-main);
+  font-size: 0.75rem;
 }
 
 /* HERO */
