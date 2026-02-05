@@ -9,7 +9,7 @@ A public lab notebook for tracking investing journey – documenting trades, lea
 - **Resources**: Curate useful links, courses, and tools with descriptions
 - **Full CRUD**: Create, read, update, and delete entries in all sections
 - **Postgres Storage**: Persistent cloud database via Vercel Postgres
-- **Secure Authentication**: NextAuth.js login required for write actions
+- **Admin-only edits**: Public read access with token-protected write actions
 - **Backups**: Export and restore entries as JSON or ZIP archives
 - **Markdown Notes**: Write in Markdown with live preview and rich rendering
 - **Analytics**: Stats dashboard with win/loss, heatmap, and tag insights
@@ -23,7 +23,7 @@ A public lab notebook for tracking investing journey – documenting trades, lea
 - **Styling**: Custom CSS (migrated from original design)
 - **Backend**: Next.js API Routes
 - **Storage**: Vercel Postgres
-- **Auth**: NextAuth.js (GitHub + credentials providers)
+- **Auth**: Admin token header for write access
 - **Runtime**: Node.js
 
 ## Getting Started
@@ -48,14 +48,7 @@ npm install
 3. Create a `.env.local` file with the required secrets:
 ```bash
 POSTGRES_URL=your_postgres_connection_string
-NEXTAUTH_SECRET=your_nextauth_secret
-NEXTAUTH_URL=http://localhost:3000
-ADMIN_EMAIL=you@example.com
-ADMIN_GITHUB_USERNAME=your_github_username
-GITHUB_ID=your_github_oauth_id
-GITHUB_SECRET=your_github_oauth_secret
-CREDENTIALS_USERNAME=your_username
-CREDENTIALS_PASSWORD=your_password
+ADMIN_TOKEN=your_admin_token
 ```
 
 4. Run the development server:
@@ -101,8 +94,7 @@ npm start
 ```
 investing-garden/
 ├── app/
-│   ├── api/              # API routes for CRUD, auth, backup, stats
-│   │   ├── auth/
+  │   ├── api/              # API routes for CRUD, backup, stats
 │   │   ├── backup/
 │   │   ├── journal/
 │   │   ├── learning/
@@ -112,7 +104,7 @@ investing-garden/
 │   ├── globals.css       # Global styles
 │   ├── layout.tsx        # Root layout
 │   ├── page.tsx          # Main page component
-│   └── providers.tsx     # NextAuth session provider
+  │   └── providers.tsx     # Admin token provider
 ├── components/           # React components
 │   ├── AuthControls.tsx  # Login/logout controls
 │   ├── EntryCard.tsx     # Display card for entries
@@ -121,7 +113,7 @@ investing-garden/
 │   ├── Section.tsx       # Section container with CRUD logic
 │   └── StatsPanel.tsx    # Analytics and backup panel
 ├── lib/
-│   ├── auth.ts           # NextAuth configuration
+  │   ├── auth.ts           # Admin token validation
 │   └── storage.ts        # Postgres persistence layer
 └── public/               # Static assets
 ```
@@ -159,8 +151,9 @@ All endpoints support JSON payloads:
 ### Market Data
 - `GET /api/market?ticker=NVDA` - Live price lookup
 
-### Authentication
-- `GET/POST /api/auth/[...nextauth]` - NextAuth.js authentication routes
+## Admin Access
+
+To enable edits, enter the `ADMIN_TOKEN` value in the header token field. All reads remain public.
 
 ## Data Storage
 

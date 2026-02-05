@@ -192,6 +192,16 @@ body {
   box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.3);
 }
 
+.auth-input {
+  width: 160px;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(15, 23, 42, 0.75);
+  color: var(--text-main);
+  font-size: 0.75rem;
+}
+
 /* HERO */
 
 .hero {
