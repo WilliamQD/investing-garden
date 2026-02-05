@@ -16,6 +16,8 @@ export default function Section({ type, title, description }: SectionProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<Entry | undefined>();
   const [loading, setLoading] = useState(true);
+  const [searchText, setSearchText] = useState('');
+  const [selectedTag, setSelectedTag] = useState<string>('');
 
   useEffect(() => {
     fetchEntries();
@@ -89,6 +91,26 @@ export default function Section({ type, title, description }: SectionProps) {
         ? 'Set weekly focuses, track progress, and mark breakthroughs.'
         : 'Save links with quick notes and tags for fast retrieval.';
 
+  // Get all unique tags from entries
+  const allTags = Array.from(
+    new Set(entries.flatMap(entry => entry.tags || []))
+  ).sort();
+
+  // Filter entries based on search text and selected tag
+  const searchLower = searchText.toLowerCase();
+  const filteredEntries = entries.filter(entry => {
+    // Text search filter
+    const matchesSearch = !searchText || 
+      (entry.title && entry.title.toLowerCase().includes(searchLower)) ||
+      (entry.content && entry.content.toLowerCase().includes(searchLower));
+    
+    // Tag filter
+    const matchesTag = !selectedTag || 
+      (entry.tags && entry.tags.includes(selectedTag));
+    
+    return matchesSearch && matchesTag;
+  });
+
   return (
     <>
       <div className={`panel-header panel-${type}`}>
@@ -102,16 +124,46 @@ export default function Section({ type, title, description }: SectionProps) {
           + Add {type === 'journal' ? 'Journal Entry' : type === 'learning' ? 'Learning Note' : 'Resource'}
         </button>
       </div>
+      
+      <div className="search-filter-bar">
+        <input
+          type="text"
+          placeholder="Search entries..."
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          className="search-input"
+        />
+        <select
+          value={selectedTag}
+          onChange={(e) => setSelectedTag(e.target.value)}
+          className="tag-filter-select"
+        >
+          <option value="">All Tags</option>
+          {allTags.map(tag => (
+            <option key={tag} value={tag}>{tag}</option>
+          ))}
+        </select>
+        {(searchText || selectedTag) && (
+          <button 
+            onClick={() => { setSearchText(''); setSelectedTag(''); }}
+            className="clear-filters-btn"
+          >
+            Clear Filters
+          </button>
+        )}
+      </div>
+      
       <div className={`card-grid card-grid-${type}`}>
         {loading ? (
           <p className="loading-message">Loading...</p>
-        ) : entries.length === 0 ? (
+        ) : filteredEntries.length === 0 ? (
           <p className="empty-message">
-            No {type === 'journal' ? 'journal entries' : type === 'learning' ? 'learning notes' : 'resources'} yet. 
-            Click the button above to add your first one!
+            {entries.length === 0 
+              ? `No ${type === 'journal' ? 'journal entries' : type === 'learning' ? 'learning notes' : 'resources'} yet. Click the button above to add your first one!`
+              : 'No entries match your search or filter criteria.'}
           </p>
         ) : (
-          entries.map(entry => (
+          filteredEntries.map(entry => (
             <EntryCard
               key={entry.id}
               entry={entry}
