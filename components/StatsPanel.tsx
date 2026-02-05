@@ -21,7 +21,7 @@ export default function StatsPanel() {
   const [loading, setLoading] = useState(true);
   const [backupMessage, setBackupMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const { token, isAdmin } = useAdmin();
+  const { authHeaders, hasAdminToken } = useAdmin();
 
   useEffect(() => {
     const loadStats = async () => {
@@ -86,14 +86,13 @@ export default function StatsPanel() {
   }, [stats]);
 
   const handleExport = async (format: 'json' | 'zip') => {
-    if (!isAdmin) {
+    if (!hasAdminToken) {
       setBackupMessage('Enter the admin token to export backups.');
       return;
     }
     setBackupMessage('Preparing backup...');
-    const adminHeaders: Record<string, string> = token ? { 'x-admin-token': token } : {};
     const response = await fetch(`/api/backup?format=${format}`, {
-      headers: adminHeaders,
+      headers: authHeaders,
       credentials: 'include',
     });
     if (!response.ok) {
@@ -116,18 +115,17 @@ export default function StatsPanel() {
   const handleRestore = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!isAdmin) {
+    if (!hasAdminToken) {
       setBackupMessage('Enter the admin token to restore backups.');
       return;
     }
     setBackupMessage('Restoring backup...');
     const formData = new FormData();
     formData.append('file', file);
-    const adminHeaders: Record<string, string> = token ? { 'x-admin-token': token } : {};
     const response = await fetch('/api/backup', {
       method: 'POST',
       body: formData,
-      headers: adminHeaders,
+      headers: authHeaders,
       credentials: 'include',
     });
     if (!response.ok) {
@@ -226,10 +224,10 @@ export default function StatsPanel() {
               Export data to JSON or ZIP. Restore a backup to repopulate the database.
             </p>
             <div className="backup-actions">
-              <button className="btn-secondary" onClick={() => handleExport('json')} disabled={!isAdmin}>
+              <button className="btn-secondary" onClick={() => handleExport('json')} disabled={!hasAdminToken}>
                 Export JSON
               </button>
-              <button className="btn-secondary" onClick={() => handleExport('zip')} disabled={!isAdmin}>
+              <button className="btn-secondary" onClick={() => handleExport('zip')} disabled={!hasAdminToken}>
                 Export ZIP
               </button>
               <label className="file-upload">
@@ -237,7 +235,7 @@ export default function StatsPanel() {
                   type="file"
                   accept=".json,.zip"
                   onChange={handleRestore}
-                  disabled={!isAdmin}
+                  disabled={!hasAdminToken}
                 />
                 Restore from file
               </label>

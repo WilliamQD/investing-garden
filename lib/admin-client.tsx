@@ -2,39 +2,38 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
-const ADMIN_TOKEN_KEY = 'investing-garden-admin-token';
-
 type AdminContextValue = {
   token: string;
-  isAdmin: boolean;
+  hasAdminToken: boolean;
+  authHeaders: Record<string, string>;
   setToken: (value: string) => void;
 };
 
 const AdminContext = createContext<AdminContextValue | null>(null);
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
-  const [token, setTokenState] = useState(() => {
-    if (typeof window === 'undefined') return '';
-    return localStorage.getItem(ADMIN_TOKEN_KEY) ?? '';
-  });
+  const [token, setTokenState] = useState('');
 
   const setToken = useCallback((value: string) => {
     setTokenState(value);
-    if (typeof window === 'undefined') return;
-    if (value) {
-      localStorage.setItem(ADMIN_TOKEN_KEY, value);
-    } else {
-      localStorage.removeItem(ADMIN_TOKEN_KEY);
-    }
   }, []);
+
+  const authHeaders = useMemo<Record<string, string>>(() => {
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['x-admin-token'] = token;
+    }
+    return headers;
+  }, [token]);
 
   const contextValue = useMemo(
     () => ({
       token,
-      isAdmin: Boolean(token),
+      hasAdminToken: Boolean(token),
+      authHeaders,
       setToken,
     }),
-    [token, setToken]
+    [authHeaders, token, setToken]
   );
 
   return <AdminContext.Provider value={contextValue}>{children}</AdminContext.Provider>;
@@ -46,9 +45,4 @@ export function useAdmin() {
     throw new Error('useAdmin must be used within AdminProvider');
   }
   return context;
-}
-
-export function getStoredAdminToken() {
-  if (typeof window === 'undefined') return '';
-  return localStorage.getItem(ADMIN_TOKEN_KEY) ?? '';
 }

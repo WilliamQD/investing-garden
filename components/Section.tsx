@@ -21,7 +21,7 @@ export default function Section({ type, title, description }: SectionProps) {
   const [searchText, setSearchText] = useState('');
   const [selectedTag, setSelectedTag] = useState<string>('');
   const [authMessage, setAuthMessage] = useState('');
-  const { token, isAdmin } = useAdmin();
+  const { authHeaders, hasAdminToken } = useAdmin();
 
   useEffect(() => {
     fetchEntries();
@@ -42,15 +42,14 @@ export default function Section({ type, title, description }: SectionProps) {
 
   const handleSave = async (entryData: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      if (!isAdmin) {
+      if (!hasAdminToken) {
         setAuthMessage('Enter the admin token to save changes.');
         return;
       }
-      const adminHeaders: Record<string, string> = token ? { 'x-admin-token': token } : {};
       if (editingEntry) {
         const response = await fetch(`/api/${type}/${editingEntry.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', ...adminHeaders },
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
           body: JSON.stringify(entryData),
           credentials: 'include',
         });
@@ -63,7 +62,7 @@ export default function Section({ type, title, description }: SectionProps) {
       } else {
         const response = await fetch(`/api/${type}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...adminHeaders },
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
           body: JSON.stringify(entryData),
           credentials: 'include',
         });
@@ -91,14 +90,13 @@ export default function Section({ type, title, description }: SectionProps) {
     if (!confirm('Are you sure you want to delete this entry?')) return;
     
     try {
-      if (!isAdmin) {
+      if (!hasAdminToken) {
         setAuthMessage('Enter the admin token to delete entries.');
         return;
       }
-      const adminHeaders: Record<string, string> = token ? { 'x-admin-token': token } : {};
       const response = await fetch(`/api/${type}/${id}`, {
         method: 'DELETE',
-        headers: adminHeaders,
+        headers: authHeaders,
         credentials: 'include',
       });
       if (response.status === 401) {
@@ -113,7 +111,7 @@ export default function Section({ type, title, description }: SectionProps) {
   };
 
   const handleAddNew = () => {
-    if (!isAdmin) {
+    if (!hasAdminToken) {
       setAuthMessage('Enter the admin token to add new entries.');
       return;
     }
@@ -158,11 +156,11 @@ export default function Section({ type, title, description }: SectionProps) {
           <p>{description}</p>
           <p className="panel-sub">{introTone}</p>
         </div>
-        <button className="add-button" onClick={handleAddNew} disabled={!isAdmin}>
+        <button className="add-button" onClick={handleAddNew} disabled={!hasAdminToken}>
           + Add {type === 'journal' ? 'Journal Entry' : type === 'learning' ? 'Learning Note' : 'Resource'}
         </button>
       </div>
-      {!isAdmin && (
+      {!hasAdminToken && (
         <div className="auth-banner">
           Enter the admin token to add, edit, or delete entries. Reading is always available.
         </div>
@@ -214,7 +212,7 @@ export default function Section({ type, title, description }: SectionProps) {
               onEdit={() => handleEdit(entry)}
               onDelete={() => handleDelete(entry.id)}
               type={type}
-              canEdit={isAdmin}
+              canEdit={hasAdminToken}
             />
           ))
         )}

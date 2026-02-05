@@ -50,6 +50,7 @@ npm install
 POSTGRES_URL=your_postgres_connection_string
 ADMIN_TOKEN=your_admin_token
 ```
+Generate a long random token (for example, `openssl rand -hex 16` for a 32-character token) to keep write access secure. Tokens must be at least 16 characters long.
 
 4. Run the development server:
 ```bash
@@ -153,7 +154,7 @@ All endpoints support JSON payloads:
 
 ## Admin Access
 
-To enable edits, enter the `ADMIN_TOKEN` value in the header token field. All reads remain public.
+To enable edits, enter the `ADMIN_TOKEN` value in the header token field. The token is kept in memory for the current page load, so re-enter it after refresh. All reads remain public.
 
 ## Data Storage
 

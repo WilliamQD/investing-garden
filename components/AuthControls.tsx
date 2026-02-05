@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useAdmin } from '@/lib/admin-client';
 
 export default function AuthControls() {
-  const { token, isAdmin, setToken } = useAdmin();
+  const { token, hasAdminToken, setToken } = useAdmin();
   const [draftToken, setDraftToken] = useState(token);
 
   useEffect(() => {
@@ -24,19 +24,25 @@ export default function AuthControls() {
   return (
     <div className="auth-controls">
       <span className="auth-status">
-        {isAdmin ? 'Admin access enabled' : 'Read-only mode'}
+        {hasAdminToken
+          ? 'Admin token active (refresh clears)'
+          : 'Read-only mode (token required each session)'}
       </span>
-      <input
-        className="auth-input"
-        type="password"
-        placeholder="Admin token"
-        value={draftToken}
-        onChange={event => setDraftToken(event.target.value)}
-      />
+      <label className="auth-label">
+        <span>Admin token</span>
+        <input
+          className="auth-input"
+          type="password"
+          placeholder="Admin token"
+          value={draftToken}
+          onChange={event => setDraftToken(event.target.value)}
+          autoComplete="off"
+        />
+      </label>
       <button className="auth-button" onClick={handleSave}>
         Save
       </button>
-      {isAdmin && (
+      {hasAdminToken && (
         <button className="auth-button" onClick={handleClear}>
           Clear
         </button>
