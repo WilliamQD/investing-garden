@@ -71,10 +71,10 @@ export async function GET() {
         resources: getCount(resourceCount.rows[0]?.count),
       },
       outcomes: {
-        win: outcomes.win ?? 0,
-        loss: outcomes.loss ?? 0,
-        flat: outcomes.flat ?? 0,
-        open: outcomes.open ?? 0,
+        win: outcomes.win,
+        loss: outcomes.loss,
+        flat: outcomes.flat,
+        open: outcomes.open,
       },
       dailyJournal: dailyJournal.rows.map(row => ({
         date: String(row.date),
