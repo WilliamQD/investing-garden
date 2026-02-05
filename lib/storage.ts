@@ -252,7 +252,7 @@ class Storage {
       await sql`DELETE FROM resource_entries`;
     }
     for (const entry of entries) {
-      const entryId = entry.id || randomUUID();
+      const entryId = entry.id?.trim() || randomUUID();
       const createdAt = entry.createdAt || new Date().toISOString();
       const updatedAt = entry.updatedAt || createdAt;
 

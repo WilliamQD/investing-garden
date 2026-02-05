@@ -35,7 +35,8 @@ export default function MarketPrice({ ticker }: MarketPriceProps) {
             updatedAt: result.updatedAt,
           });
         }
-      } catch {
+      } catch (error) {
+        console.error('Market price fetch failed', error);
         if (isActive) {
           setError('Price unavailable');
         }

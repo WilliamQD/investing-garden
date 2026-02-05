@@ -62,6 +62,13 @@ export default function StatsPanel() {
   }, [stats]);
 
   const heatmapCells = useMemo(() => {
+    const getHeatmapLevel = (count: number) => {
+      if (count === 0) return 0;
+      if (count < 2) return 1;
+      if (count < 4) return 2;
+      if (count < 6) return 3;
+      return 4;
+    };
     const activityMap = new Map(
       (stats?.activity ?? []).map(item => [item.date, item.count])
     );
@@ -71,7 +78,7 @@ export default function StatsPanel() {
       date.setDate(date.getDate() - i);
       const key = date.toISOString().slice(0, 10);
       const count = activityMap.get(key) ?? 0;
-      const level = count === 0 ? 0 : count < 2 ? 1 : count < 4 ? 2 : count < 6 ? 3 : 4;
+      const level = getHeatmapLevel(count);
       cells.push({ date: key, count, level });
     }
     return cells;
