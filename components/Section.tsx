@@ -97,11 +97,12 @@ export default function Section({ type, title, description }: SectionProps) {
   ).sort();
 
   // Filter entries based on search text and selected tag
+  const searchLower = searchText.toLowerCase();
   const filteredEntries = entries.filter(entry => {
     // Text search filter
     const matchesSearch = !searchText || 
-      (entry.title && entry.title.toLowerCase().includes(searchText.toLowerCase())) ||
-      (entry.content && entry.content.toLowerCase().includes(searchText.toLowerCase()));
+      (entry.title && entry.title.toLowerCase().includes(searchLower)) ||
+      (entry.content && entry.content.toLowerCase().includes(searchLower));
     
     // Tag filter
     const matchesTag = !selectedTag || 
