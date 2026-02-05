@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
+
+import { getAuthorizedSession } from '@/lib/auth';
 import { storage } from '@/lib/storage';
 
 export async function GET() {
   try {
-    const entries = storage.getAll('learning');
+    const entries = await storage.getAll('learning');
     return NextResponse.json(entries);
   } catch (error) {
     console.error('Error fetching journal entries:', error);
@@ -13,17 +15,21 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await getAuthorizedSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const body = await request.json();
-    const { title, content, tags } = body;
+    const { title, content, goal, nextStep } = body;
 
     if (!title || !content) {
       return NextResponse.json({ error: 'Title and content are required' }, { status: 400 });
     }
 
-    const entry = storage.create('learning', { title, content, tags });
+    const entry = await storage.create('learning', { title, content, goal, nextStep });
     return NextResponse.json(entry, { status: 201 });
   } catch (error) {
-    console.error('Error creating journal entry:', error);
+    console.error('Error creating learning entry:', error);
     return NextResponse.json({ error: 'Failed to create entry' }, { status: 500 });
   }
 }

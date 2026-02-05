@@ -8,16 +8,22 @@ A public lab notebook for tracking investing journey – documenting trades, lea
 - **Learning Plan**: Track educational progress and study notes
 - **Resources**: Curate useful links, courses, and tools with descriptions
 - **Full CRUD**: Create, read, update, and delete entries in all sections
-- **Data Persistence**: All entries are saved to disk and persist across sessions
+- **Postgres Storage**: Persistent cloud database via Vercel Postgres
+- **Admin-only edits**: Public read access with token-protected write actions
+- **Backups**: Export and restore entries as JSON or ZIP archives
+- **Markdown Notes**: Write in Markdown with live preview and rich rendering
+- **Analytics**: Stats dashboard with win/loss, heatmap, and tag insights
+- **Market Data**: Live prices pulled when a journal ticker is provided
 - **Modern UI**: Beautiful, responsive design with modal dialogs and smooth interactions
 
 ## Tech Stack
 
-- **Framework**: Next.js 14 with App Router
+- **Framework**: Next.js 16 with App Router
 - **Language**: TypeScript
 - **Styling**: Custom CSS (migrated from original design)
 - **Backend**: Next.js API Routes
-- **Storage**: File-based JSON storage
+- **Storage**: Vercel Postgres
+- **Auth**: Admin token header for write access
 - **Runtime**: Node.js
 
 ## Getting Started
@@ -39,12 +45,19 @@ cd investing-garden
 npm install
 ```
 
-3. Run the development server:
+3. Create a `.env.local` file with the required secrets:
+```bash
+POSTGRES_URL=your_postgres_connection_string
+ADMIN_TOKEN=your_admin_token
+```
+Generate a long random token (for example, `openssl rand -hex 16` for a 32-character token) to keep write access secure. Tokens must be at least 16 characters long.
+
+4. Run the development server:
 ```bash
 npm run dev
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
 
 ### Building for Production
 
@@ -59,9 +72,11 @@ npm start
 
 1. Click the navigation buttons (Journal, Learning, Resources) to switch sections
 2. Click the "+ Add [Entry Type]" button in any section
-3. Fill in the title, content, and optional tags
-4. For resources, you can also add a URL
-5. Click "Save" to create the entry
+3. Fill in the section-specific fields (trade outcome + emotion, learning goals + next steps, or resource URL + type)
+4. Add a ticker to journal entries to pull live market prices
+5. Use Markdown in notes for formatting (preview is shown live)
+6. Add tags for journal/resource entries if desired
+7. Click "Save" to create the entry
 
 ### Editing Entries
 
@@ -80,20 +95,27 @@ npm start
 ```
 investing-garden/
 ├── app/
-│   ├── api/              # API routes for CRUD operations
+  │   ├── api/              # API routes for CRUD, backup, stats
+│   │   ├── backup/
 │   │   ├── journal/
 │   │   ├── learning/
-│   │   └── resources/
+│   │   ├── market/
+│   │   ├── resources/
+│   │   └── stats/
 │   ├── globals.css       # Global styles
 │   ├── layout.tsx        # Root layout
-│   └── page.tsx          # Main page component
+│   ├── page.tsx          # Main page component
+  │   └── providers.tsx     # Admin token provider
 ├── components/           # React components
+│   ├── AuthControls.tsx  # Login/logout controls
 │   ├── EntryCard.tsx     # Display card for entries
 │   ├── EntryModal.tsx    # Modal for add/edit
-│   └── Section.tsx       # Section container with CRUD logic
+│   ├── MarketPrice.tsx   # Market price display
+│   ├── Section.tsx       # Section container with CRUD logic
+│   └── StatsPanel.tsx    # Analytics and backup panel
 ├── lib/
-│   └── storage.ts        # Data persistence layer
-├── data/                 # JSON storage (gitignored)
+  │   ├── auth.ts           # Admin token validation
+│   └── storage.ts        # Postgres persistence layer
 └── public/               # Static assets
 ```
 
@@ -122,14 +144,23 @@ All endpoints support JSON payloads:
 - `PUT /api/resources/[id]` - Update a resource
 - `DELETE /api/resources/[id]` - Delete a resource
 
+### Backup & Analytics
+- `GET /api/backup?format=json|zip` - Export all data
+- `POST /api/backup` - Restore from a backup file
+- `GET /api/stats` - Analytics payload for the Stats dashboard
+
+### Market Data
+- `GET /api/market?ticker=NVDA` - Live price lookup
+
+## Admin Access
+
+To enable edits, enter the `ADMIN_TOKEN` value in the header token field. The token is kept in memory for the current page load, so re-enter it after refresh. All reads remain public.
+
 ## Data Storage
 
-Entries are stored as JSON files in the `data/` directory:
-- `data/journal.json`
-- `data/learning.json`
-- `data/resources.json`
-
-The data directory is gitignored to keep your personal entries private.
+Entries are stored in Postgres tables. To migrate older `data/*.json` files, zip the
+three JSON files (`journal.json`, `learning.json`, `resources.json`) and restore them
+from the Stats → Backup & restore panel.
 
 ## License
 

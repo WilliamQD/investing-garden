@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+
+import { getAuthorizedSession } from '@/lib/auth';
 import { storage } from '@/lib/storage';
 
 export async function GET(
@@ -7,7 +9,7 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const entry = storage.getById('learning', id);
+    const entry = await storage.getById('learning', id);
     if (!entry) {
       return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
     }
@@ -24,10 +26,18 @@ export async function PUT(
 ) {
   const { id } = await params;
   try {
+    const session = await getAuthorizedSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const body = await request.json();
-    const { title, content, tags } = body;
+    const { title, content, goal, nextStep } = body;
 
-    const entry = storage.update('learning', id, { title, content, tags });
+    if (!title || !content) {
+      return NextResponse.json({ error: 'Title and content are required' }, { status: 400 });
+    }
+
+    const entry = await storage.update('learning', id, { title, content, goal, nextStep });
     if (!entry) {
       return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
     }
@@ -44,7 +54,11 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    const success = storage.delete('learning', id);
+    const session = await getAuthorizedSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const success = await storage.delete('learning', id);
     if (!success) {
       return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
     }
