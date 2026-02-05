@@ -19,10 +19,13 @@ export default function MarketPrice({ ticker }: MarketPriceProps) {
 
   useEffect(() => {
     let isActive = true;
+    const normalizedTicker = ticker.trim().toUpperCase();
     const loadPrice = async () => {
       try {
         setError('');
-        const response = await fetch(`/api/market?ticker=${encodeURIComponent(ticker)}`);
+        const response = await fetch(
+          `/api/market?ticker=${encodeURIComponent(normalizedTicker)}`
+        );
         if (!response.ok) {
           throw new Error('Failed to fetch market data');
         }

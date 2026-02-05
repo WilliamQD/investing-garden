@@ -85,14 +85,14 @@ export async function POST(request: Request) {
     } else {
       const text = new TextDecoder().decode(buffer);
       const parsed = JSON.parse(text);
-      if (Array.isArray(parsed) || !parsed || typeof parsed !== 'object') {
+      if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
         return NextResponse.json({ error: 'Backup must include journal, learning, and resources keys.' }, { status: 400 });
       }
       payload = normalizePayload(parsed as Record<string, unknown>);
     }
   } else {
     const body = await request.json();
-    if (Array.isArray(body) || !body || typeof body !== 'object') {
+    if (!body || Array.isArray(body) || typeof body !== 'object') {
       return NextResponse.json({ error: 'Backup must include journal, learning, and resources keys.' }, { status: 400 });
     }
     payload = normalizePayload(body as Record<string, unknown>);

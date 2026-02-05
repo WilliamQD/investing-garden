@@ -7,7 +7,7 @@ const getCount = (value: unknown) => Number(value ?? 0);
 
 export async function GET() {
   try {
-    await storage.getAll('journal');
+    await storage.initialize();
 
     const [journalCount, learningCount, resourceCount] = await Promise.all([
       sql`SELECT COUNT(*)::int AS count FROM journal_entries`,

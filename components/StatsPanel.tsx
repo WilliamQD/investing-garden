@@ -52,7 +52,7 @@ export default function StatsPanel() {
 
   const winRate = useMemo(() => {
     if (!stats) return 0;
-    const total = stats.outcomes.win + stats.outcomes.loss + stats.outcomes.flat + stats.outcomes.open;
+    const total = stats.outcomes.win + stats.outcomes.loss;
     return total ? (stats.outcomes.win / total) * 100 : 0;
   }, [stats]);
 
@@ -101,7 +101,8 @@ export default function StatsPanel() {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `investing-garden-backup.${format === 'zip' ? 'zip' : 'json'}`;
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    link.download = `investing-garden-backup-${dateStamp}.${format === 'zip' ? 'zip' : 'json'}`;
     document.body.appendChild(link);
     link.click();
     link.remove();

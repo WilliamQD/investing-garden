@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   try {
     const response = await fetch(
       `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(ticker)}`,
-      { cache: 'no-store' }
+      { next: { revalidate: 60 } }
     );
     if (!response.ok) {
       throw new Error('Failed to fetch');

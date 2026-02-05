@@ -114,6 +114,10 @@ function mapRowToEntry(type: EntryType, row: Record<string, unknown>): Entry {
 }
 
 class Storage {
+  async initialize(): Promise<void> {
+    await ensureTables();
+  }
+
   async getAll(type: EntryType): Promise<Entry[]> {
     await ensureTables();
     if (type === 'journal') {
@@ -252,7 +256,7 @@ class Storage {
       await sql`DELETE FROM resource_entries`;
     }
     for (const entry of entries) {
-      const entryId = entry.id?.trim() || randomUUID();
+      const entryId = entry.id?.trim() ? entry.id.trim() : randomUUID();
       const createdAt = entry.createdAt || new Date().toISOString();
       const updatedAt = entry.updatedAt || createdAt;
 
