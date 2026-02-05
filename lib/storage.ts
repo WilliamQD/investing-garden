@@ -257,6 +257,9 @@ class Storage {
     }
     for (const entry of entries) {
       const trimmedId = entry.id?.trim();
+      if (entry.id && trimmedId === '') {
+        console.warn('Backup entry missing id; generating a new one.');
+      }
       const entryId = trimmedId ? trimmedId : randomUUID();
       const createdAt = entry.createdAt || new Date().toISOString();
       const updatedAt = entry.updatedAt || createdAt;

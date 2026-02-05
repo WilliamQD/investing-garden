@@ -3,7 +3,10 @@ import { NextResponse } from 'next/server';
 
 import { storage } from '@/lib/storage';
 
-const getCount = (value: unknown) => Number(value ?? 0);
+const getCount = (value: unknown) => {
+  const parsed = Number.parseInt(String(value ?? 0), 10);
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
 
 export async function GET() {
   try {

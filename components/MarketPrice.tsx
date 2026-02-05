@@ -13,6 +13,9 @@ interface MarketData {
   updatedAt?: string;
 }
 
+const CACHE_TTL = 60_000;
+const marketCache = new Map<string, { data: MarketData; timestamp: number }>();
+
 export default function MarketPrice({ ticker }: MarketPriceProps) {
   const [data, setData] = useState<MarketData | null>(null);
   const [error, setError] = useState<string>('');
@@ -20,6 +23,14 @@ export default function MarketPrice({ ticker }: MarketPriceProps) {
   useEffect(() => {
     let isActive = true;
     const normalizedTicker = ticker.trim().toUpperCase();
+    const cached = marketCache.get(normalizedTicker);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      setData(cached.data);
+      setError('');
+      return () => {
+        isActive = false;
+      };
+    }
     const loadPrice = async () => {
       try {
         setError('');
@@ -31,12 +42,14 @@ export default function MarketPrice({ ticker }: MarketPriceProps) {
         }
         const result = await response.json();
         if (isActive) {
-          setData({
+          const nextData = {
             price: result.price,
             currency: result.currency,
             changePercent: result.changePercent,
             updatedAt: result.updatedAt,
-          });
+          };
+          marketCache.set(normalizedTicker, { data: nextData, timestamp: Date.now() });
+          setData(nextData);
         }
       } catch (error) {
         console.error('Market price fetch failed', error);

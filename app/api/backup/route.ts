@@ -17,6 +17,9 @@ const normalizePayload = (payload: Record<string, unknown>): BackupPayload => ({
   resources: (payload.resources as Entry[]) ?? [],
 });
 
+const hasRequiredKeys = (payload: Record<string, unknown>) =>
+  'journal' in payload && 'learning' in payload && 'resources' in payload;
+
 export async function GET(request: Request) {
   const session = await getAuthorizedSession();
   if (!session) {
@@ -88,11 +91,17 @@ export async function POST(request: Request) {
       if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
         return NextResponse.json({ error: 'Backup must include journal, learning, and resources keys.' }, { status: 400 });
       }
+      if (!hasRequiredKeys(parsed as Record<string, unknown>)) {
+        return NextResponse.json({ error: 'Backup must include journal, learning, and resources keys.' }, { status: 400 });
+      }
       payload = normalizePayload(parsed as Record<string, unknown>);
     }
   } else {
     const body = await request.json();
     if (!body || Array.isArray(body) || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Backup must include journal, learning, and resources keys.' }, { status: 400 });
+    }
+    if (!hasRequiredKeys(body as Record<string, unknown>)) {
       return NextResponse.json({ error: 'Backup must include journal, learning, and resources keys.' }, { status: 400 });
     }
     payload = normalizePayload(body as Record<string, unknown>);

@@ -52,7 +52,7 @@ export default function StatsPanel() {
 
   const winRate = useMemo(() => {
     if (!stats) return 0;
-    const total = stats.outcomes.win + stats.outcomes.loss;
+    const total = stats.outcomes.win + stats.outcomes.loss + stats.outcomes.flat;
     return total ? (stats.outcomes.win / total) * 100 : 0;
   }, [stats]);
 
