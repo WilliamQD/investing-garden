@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getAuthorizedSession } from '@/lib/auth';
 import { storage } from '@/lib/storage';
+import { normalizeEntryInput } from '@/lib/validation';
 
 export async function GET() {
   try {
@@ -20,13 +21,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const body = await request.json();
-    const { title, content, goal, nextStep } = body;
-
-    if (!title || !content) {
-      return NextResponse.json({ error: 'Title and content are required' }, { status: 400 });
+    if (!body || Array.isArray(body) || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid request payload' }, { status: 400 });
+    }
+    const normalized = normalizeEntryInput('learning', body as Record<string, unknown>);
+    if (!normalized.data) {
+      return NextResponse.json({ error: normalized.error ?? 'Invalid entry payload' }, { status: 400 });
     }
 
-    const entry = await storage.create('learning', { title, content, goal, nextStep });
+    const entry = await storage.create('learning', normalized.data);
     return NextResponse.json(entry, { status: 201 });
   } catch (error) {
     console.error('Error creating learning entry:', error);

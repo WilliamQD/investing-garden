@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { getAuthorizedSession } from '@/lib/auth';
 import type { Entry } from '@/lib/storage';
 import { storage } from '@/lib/storage';
+import { normalizeBackupEntry } from '@/lib/validation';
 
 type BackupPayload = {
   journal: Entry[];
@@ -15,15 +16,59 @@ const INVALID_FORMAT_MESSAGE =
   'Invalid backup format: expected an object with journal, learning, and resources keys.';
 const MISSING_KEYS_MESSAGE =
   'Backup must include journal, learning, and resources keys.';
+const MAX_BACKUP_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_BACKUP_FORM_BYTES = MAX_BACKUP_FILE_BYTES + 1024 * 1024;
+const INVALID_ENTRIES_MESSAGE = (count: number) =>
+  `Backup contains ${count} invalid ${count === 1 ? 'entry' : 'entries'}.`;
 
-const normalizePayload = (payload: Record<string, unknown>): BackupPayload => ({
-  journal: (payload.journal as Entry[]) ?? [],
-  learning: (payload.learning as Entry[]) ?? [],
-  resources: (payload.resources as Entry[]) ?? [],
-});
+const parseJson = (text: string) => {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+};
 
 const hasRequiredKeys = (payload: Record<string, unknown>) =>
   'journal' in payload && 'learning' in payload && 'resources' in payload;
+
+const normalizeEntries = (type: 'journal' | 'learning' | 'resources', entries: unknown) => {
+  if (!Array.isArray(entries)) {
+    return { entries: [] as Entry[], invalidCount: 0, invalidFormat: true };
+  }
+  const normalized = entries
+    .map(entry => normalizeBackupEntry(type, entry))
+    .filter((entry): entry is Entry => Boolean(entry));
+  return {
+    entries: normalized,
+    invalidCount: entries.length - normalized.length,
+    invalidFormat: false,
+  };
+};
+
+const normalizeBackupPayload = (payload: Record<string, unknown>) => {
+  if (!hasRequiredKeys(payload)) {
+    return { error: MISSING_KEYS_MESSAGE };
+  }
+  const journalResult = normalizeEntries('journal', payload.journal);
+  const learningResult = normalizeEntries('learning', payload.learning);
+  const resourcesResult = normalizeEntries('resources', payload.resources);
+  if (journalResult.invalidFormat || learningResult.invalidFormat || resourcesResult.invalidFormat) {
+    return { error: INVALID_FORMAT_MESSAGE };
+  }
+  const invalidCount =
+    journalResult.invalidCount + learningResult.invalidCount + resourcesResult.invalidCount;
+  if (invalidCount > 0) {
+    return { error: INVALID_ENTRIES_MESSAGE(invalidCount) };
+  }
+  return {
+    data: {
+      journal: journalResult.entries,
+      learning: learningResult.entries,
+      resources: resourcesResult.entries,
+    } satisfies BackupPayload,
+  };
+};
 
 export async function GET(request: Request) {
   const session = await getAuthorizedSession();
@@ -71,13 +116,27 @@ export async function POST(request: Request) {
   }
 
   const contentType = request.headers.get('content-type') || '';
-  let payload: BackupPayload | null = null;
+  let payload: Record<string, unknown> | null = null;
 
   if (contentType.includes('multipart/form-data')) {
+    const contentLength = request.headers.get('content-length');
+    const contentLengthBytes = contentLength ? Number(contentLength) : Number.NaN;
+    if (Number.isFinite(contentLengthBytes) && contentLengthBytes > MAX_BACKUP_FORM_BYTES) {
+      return NextResponse.json(
+        { error: 'Backup file is too large (max 5MB)' },
+        { status: 413 }
+      );
+    }
     const formData = await request.formData();
     const file = formData.get('file');
     if (!file || !(file instanceof File)) {
       return NextResponse.json({ error: 'Missing file' }, { status: 400 });
+    }
+    if (file.size > MAX_BACKUP_FILE_BYTES) {
+      return NextResponse.json(
+        { error: 'Backup file is too large (max 5MB)' },
+        { status: 413 }
+      );
     }
     const buffer = await file.arrayBuffer();
     if (file.name.endsWith('.zip') || file.type === 'application/zip') {
@@ -85,40 +144,54 @@ export async function POST(request: Request) {
       const journalJson = await zip.file('journal.json')?.async('string');
       const learningJson = await zip.file('learning.json')?.async('string');
       const resourcesJson = await zip.file('resources.json')?.async('string');
+      const parsedJournal = journalJson ? parseJson(journalJson) : [];
+      const parsedLearning = learningJson ? parseJson(learningJson) : [];
+      const parsedResources = resourcesJson ? parseJson(resourcesJson) : [];
+      if (
+        (journalJson && parsedJournal === null) ||
+        (learningJson && parsedLearning === null) ||
+        (resourcesJson && parsedResources === null)
+      ) {
+        return NextResponse.json({ error: INVALID_FORMAT_MESSAGE }, { status: 400 });
+      }
       payload = {
-        journal: journalJson ? JSON.parse(journalJson) : [],
-        learning: learningJson ? JSON.parse(learningJson) : [],
-        resources: resourcesJson ? JSON.parse(resourcesJson) : [],
+        journal: parsedJournal,
+        learning: parsedLearning,
+        resources: parsedResources,
       };
     } else {
       const text = new TextDecoder().decode(buffer);
-      const parsed = JSON.parse(text);
+      const parsed = parseJson(text);
       if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
         return NextResponse.json({ error: INVALID_FORMAT_MESSAGE }, { status: 400 });
       }
-      if (!hasRequiredKeys(parsed as Record<string, unknown>)) {
-        return NextResponse.json({ error: MISSING_KEYS_MESSAGE }, { status: 400 });
-      }
-      payload = normalizePayload(parsed as Record<string, unknown>);
+      payload = parsed as Record<string, unknown>;
     }
   } else {
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: INVALID_FORMAT_MESSAGE }, { status: 400 });
+    }
     if (!body || Array.isArray(body) || typeof body !== 'object') {
       return NextResponse.json({ error: INVALID_FORMAT_MESSAGE }, { status: 400 });
     }
-    if (!hasRequiredKeys(body as Record<string, unknown>)) {
-      return NextResponse.json({ error: MISSING_KEYS_MESSAGE }, { status: 400 });
-    }
-    payload = normalizePayload(body as Record<string, unknown>);
+    payload = body as Record<string, unknown>;
   }
 
   if (!payload) {
     return NextResponse.json({ error: 'Invalid backup payload' }, { status: 400 });
   }
 
-  await storage.replaceAll('journal', payload.journal);
-  await storage.replaceAll('learning', payload.learning);
-  await storage.replaceAll('resources', payload.resources);
+  const normalized = normalizeBackupPayload(payload);
+  if (!normalized.data) {
+    return NextResponse.json({ error: normalized.error ?? INVALID_FORMAT_MESSAGE }, { status: 400 });
+  }
+
+  await storage.replaceAll('journal', normalized.data.journal);
+  await storage.replaceAll('learning', normalized.data.learning);
+  await storage.replaceAll('resources', normalized.data.resources);
 
   return NextResponse.json({ success: true });
 }

@@ -8,8 +8,14 @@ type QuotePayload = {
 };
 
 const DEFAULT_CACHE_TTL_SECONDS = 180;
+const MIN_CACHE_TTL_SECONDS = 60;
+const MAX_CACHE_TTL_SECONDS = 300;
 const cacheTtlSeconds = Number(process.env.MARKET_CACHE_TTL_SECONDS);
-const CACHE_TTL_MS = (Number.isFinite(cacheTtlSeconds) ? cacheTtlSeconds : DEFAULT_CACHE_TTL_SECONDS) * 1000;
+const resolvedCacheSeconds = Number.isFinite(cacheTtlSeconds)
+  ? Math.min(Math.max(cacheTtlSeconds, MIN_CACHE_TTL_SECONDS), MAX_CACHE_TTL_SECONDS)
+  : DEFAULT_CACHE_TTL_SECONDS;
+const CACHE_TTL_MS = resolvedCacheSeconds * 1000;
+const CACHE_HEADER = `s-maxage=${resolvedCacheSeconds}, stale-while-revalidate=${resolvedCacheSeconds}`;
 const quoteCache = new Map<string, { data: QuotePayload; timestamp: number }>();
 
 export async function GET(request: Request) {
@@ -21,12 +27,18 @@ export async function GET(request: Request) {
 
   const cached = quoteCache.get(ticker);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return NextResponse.json({ ticker, ...cached.data, cached: true });
+    return NextResponse.json(
+      { ticker, ...cached.data, cached: true },
+      { headers: { 'Cache-Control': CACHE_HEADER } }
+    );
   }
 
   const apiKey = process.env.TWELVE_DATA_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: 'Market data is unavailable' }, { status: 503 });
+    return NextResponse.json(
+      { error: 'Market data is unavailable' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } }
+    );
   }
 
   try {
@@ -54,12 +66,21 @@ export async function GET(request: Request) {
         : new Date().toISOString(),
     };
     quoteCache.set(ticker, { data: payload, timestamp: Date.now() });
-    return NextResponse.json({ ticker, ...payload });
+    return NextResponse.json(
+      { ticker, ...payload },
+      { headers: { 'Cache-Control': CACHE_HEADER } }
+    );
   } catch (error) {
     console.error('Error fetching market data:', error);
     if (cached) {
-      return NextResponse.json({ ticker, ...cached.data, stale: true });
+      return NextResponse.json(
+        { ticker, ...cached.data, stale: true },
+        { headers: { 'Cache-Control': CACHE_HEADER } }
+      );
     }
-    return NextResponse.json({ error: 'Market data unavailable' }, { status: 503 });
+    return NextResponse.json(
+      { error: 'Market data unavailable' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } }
+    );
   }
 }

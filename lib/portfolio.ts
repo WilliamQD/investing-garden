@@ -69,6 +69,10 @@ async function ensureTables() {
         )
       `;
       await sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS portfolio_holdings_ticker_idx
+        ON portfolio_holdings (ticker)
+      `;
+      await sql`
         CREATE TABLE IF NOT EXISTS site_settings (
           id text PRIMARY KEY,
           data jsonb NOT NULL,
@@ -146,6 +150,8 @@ export async function addHolding(ticker: string, label?: string): Promise<Holdin
   const { rows } = await sql`
     INSERT INTO portfolio_holdings (id, ticker, label, created_at)
     VALUES (${id}, ${normalizedTicker}, ${label ?? null}, ${createdAt})
+    ON CONFLICT (ticker)
+    DO UPDATE SET label = COALESCE(EXCLUDED.label, portfolio_holdings.label)
     RETURNING id, ticker, label, created_at
   `;
   return mapHolding(rows[0]);

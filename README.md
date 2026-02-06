@@ -87,6 +87,13 @@ Click the Visitor/Admin pill in the header, paste the `ADMIN_TOKEN`, and activat
 - Capture research notes and learning goals.
 - Save external resources with type taxonomy (website, course, research paper, etc.).
 
+### Data validation notes
+
+- Portfolio snapshots require a `YYYY-MM-DD` date and a non-negative numeric value.
+- Holdings tickers accept 1-10 characters (letters, numbers, `.` or `-`).
+- Resource URLs must start with `http://` or `https://`.
+- Backup restores accept JSON or ZIP files up to 5MB.
+
 ## Project Structure
 
 ```

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getAuthorizedSession } from '@/lib/auth';
 import { getPortfolioSnapshots, upsertPortfolioSnapshot } from '@/lib/portfolio';
+import { normalizeIsoDate } from '@/lib/validation';
 
 export async function GET() {
   try {
@@ -20,15 +21,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const body = await request.json();
-    const { date, value } = body;
-    const numericValue = Number(value);
-    if (!date || !Number.isFinite(numericValue)) {
+    if (!body || Array.isArray(body) || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid request payload' }, { status: 400 });
+    }
+    const rawDate = (body as Record<string, unknown>).date;
+    const normalizedDate = normalizeIsoDate(rawDate);
+    const numericValue = Number((body as Record<string, unknown>).value);
+    if (!normalizedDate || !Number.isFinite(numericValue) || numericValue < 0) {
       return NextResponse.json(
-        { error: 'Date and numeric value are required' },
+        { error: 'Date (YYYY-MM-DD) and a non-negative numeric value are required' },
         { status: 400 }
       );
     }
-    const snapshot = await upsertPortfolioSnapshot(date, numericValue);
+    const snapshot = await upsertPortfolioSnapshot(normalizedDate, numericValue);
     return NextResponse.json(snapshot, { status: 201 });
   } catch (error) {
     console.error('Error saving portfolio snapshot:', error);

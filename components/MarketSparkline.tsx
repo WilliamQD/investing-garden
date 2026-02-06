@@ -12,8 +12,12 @@ type Candle = {
 };
 
 const DEFAULT_CACHE_TTL = 180_000;
+const MIN_CACHE_TTL = 60_000;
+const MAX_CACHE_TTL = 300_000;
 const cacheEnvValue = Number(process.env.NEXT_PUBLIC_MARKET_CACHE_TTL_MS);
-const CACHE_TTL = Number.isFinite(cacheEnvValue) ? cacheEnvValue : DEFAULT_CACHE_TTL;
+const CACHE_TTL = Number.isFinite(cacheEnvValue)
+  ? Math.min(Math.max(cacheEnvValue, MIN_CACHE_TTL), MAX_CACHE_TTL)
+  : DEFAULT_CACHE_TTL;
 const historyCache = new Map<string, { data: Candle[]; timestamp: number }>();
 
 export default function MarketSparkline({ ticker }: MarketSparklineProps) {
