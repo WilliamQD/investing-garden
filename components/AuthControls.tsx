@@ -7,6 +7,7 @@ import { useAdmin } from '@/lib/admin-client';
 export default function AuthControls() {
   const { token, hasAdminToken, setToken } = useAdmin();
   const [draftToken, setDraftToken] = useState(token);
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     setDraftToken(token);
@@ -14,38 +15,65 @@ export default function AuthControls() {
 
   const handleSave = () => {
     setToken(draftToken.trim());
+    setIsOpen(false);
   };
 
   const handleClear = () => {
     setDraftToken('');
     setToken('');
+    setIsOpen(false);
   };
 
   return (
     <div className="auth-controls">
-      <span className="auth-status">
-        {hasAdminToken
-          ? 'Admin token active (refresh clears)'
-          : 'Read-only mode (token required each session)'}
-      </span>
-      <label className="auth-label">
-        <span>Admin token</span>
-        <input
-          className="auth-input"
-          type="password"
-          placeholder="Admin token"
-          value={draftToken}
-          onChange={event => setDraftToken(event.target.value)}
-          autoComplete="off"
-        />
-      </label>
-      <button className="auth-button" onClick={handleSave}>
-        Save
+      <button
+        className={`auth-toggle ${hasAdminToken ? 'auth-toggle-active' : ''}`}
+        onClick={() => setIsOpen(prev => !prev)}
+        type="button"
+      >
+        <span className={`auth-dot ${hasAdminToken ? 'auth-dot-active' : ''}`} />
+        {hasAdminToken ? 'Admin' : 'Visitor'}
       </button>
-      {hasAdminToken && (
-        <button className="auth-button" onClick={handleClear}>
-          Clear
-        </button>
+      {isOpen && (
+        <div className="auth-popover">
+          <div className="auth-popover-header">
+            <div>
+              <p className="auth-title">Admin access</p>
+              <p className="auth-caption">
+                Enter a token to unlock edits and data entry.
+              </p>
+            </div>
+            <button
+              className="auth-close"
+              onClick={() => setIsOpen(false)}
+              type="button"
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
+          <label className="auth-label">
+            <span>Admin token</span>
+            <input
+              className="auth-input"
+              type="password"
+              placeholder="Paste token"
+              value={draftToken}
+              onChange={event => setDraftToken(event.target.value)}
+              autoComplete="off"
+            />
+          </label>
+          <div className="auth-actions">
+            <button className="auth-button" onClick={handleSave} type="button">
+              {hasAdminToken ? 'Update' : 'Activate'}
+            </button>
+            {hasAdminToken && (
+              <button className="auth-button auth-button-ghost" onClick={handleClear} type="button">
+                Log out
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

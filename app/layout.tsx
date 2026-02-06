@@ -4,8 +4,8 @@ import Providers from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "WZ · Investing Lab",
-  description: "A public lab notebook for William Zhang's investing journey – tracking account value, trades, and learning progress.",
+  title: "Investing Garden",
+  description: "A clean investing workspace for portfolio tracking, market notes, and research resources.",
 };
 
 export default function RootLayout({
