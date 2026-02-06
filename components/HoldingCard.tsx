@@ -85,7 +85,7 @@ export default function HoldingCard({ holding, canEdit, onRemove, onUpdateLabel 
               </div>
             </div>
           ) : (
-            <p className={`holding-label ${holding.label ? '' : 'holding-label-muted'}`.trim()}>
+            <p className={`holding-label${holding.label ? '' : ' holding-label-muted'}`}>
               {holding.label || 'No label yet'}
             </p>
           )}

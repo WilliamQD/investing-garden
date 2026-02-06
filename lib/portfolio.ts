@@ -159,21 +159,25 @@ export async function addHolding(ticker: string, label?: string): Promise<Holdin
 
 export async function addHoldings(holdings: { ticker: string; label?: string }[]): Promise<Holding[]> {
   await ensureTables();
-  const results: Holding[] = [];
-  for (const holding of holdings) {
+  if (!holdings.length) return [];
+  const values: (string | null)[] = [];
+  const rows = holdings.map((holding, index) => {
+    const id = randomUUID();
     const normalizedTicker = holding.ticker.trim().toUpperCase();
     const createdAt = new Date().toISOString();
-    const id = randomUUID();
-    const { rows } = await sql`
-      INSERT INTO portfolio_holdings (id, ticker, label, created_at)
-      VALUES (${id}, ${normalizedTicker}, ${holding.label ?? null}, ${createdAt})
-      ON CONFLICT (ticker)
-      DO UPDATE SET label = COALESCE(EXCLUDED.label, portfolio_holdings.label)
-      RETURNING id, ticker, label, created_at
-    `;
-    results.push(mapHolding(rows[0]));
-  }
-  return results;
+    const offset = index * 4;
+    values.push(id, normalizedTicker, holding.label ?? null, createdAt);
+    return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`;
+  });
+  const query = `
+    INSERT INTO portfolio_holdings (id, ticker, label, created_at)
+    VALUES ${rows.join(', ')}
+    ON CONFLICT (ticker)
+    DO UPDATE SET label = COALESCE(EXCLUDED.label, portfolio_holdings.label)
+    RETURNING id, ticker, label, created_at
+  `;
+  const result = await sql.query(query, values);
+  return result.rows.map(row => mapHolding(row));
 }
 
 export async function deleteHolding(id: string): Promise<boolean> {
