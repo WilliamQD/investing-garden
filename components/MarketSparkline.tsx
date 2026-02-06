@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 interface MarketSparklineProps {
   ticker: string;
+  refreshToken?: number;
 }
 
 type Candle = {
@@ -20,7 +21,7 @@ const CACHE_TTL = Number.isFinite(cacheEnvValue)
   : DEFAULT_CACHE_TTL;
 const historyCache = new Map<string, { data: Candle[]; timestamp: number }>();
 
-export default function MarketSparkline({ ticker }: MarketSparklineProps) {
+export default function MarketSparkline({ ticker, refreshToken }: MarketSparklineProps) {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [error, setError] = useState<string>('');
 
@@ -31,15 +32,19 @@ export default function MarketSparkline({ ticker }: MarketSparklineProps) {
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       setCandles(cached.data);
       setError('');
-      return () => {
-        isActive = false;
-      };
+      if (!refreshToken) {
+        return () => {
+          isActive = false;
+        };
+      }
     }
 
     const loadHistory = async () => {
       try {
+        const refreshQuery = refreshToken ? `&refresh=${refreshToken}` : '';
         const response = await fetch(
-          `/api/market/history?ticker=${encodeURIComponent(normalizedTicker)}`
+          `/api/market/history?ticker=${encodeURIComponent(normalizedTicker)}${refreshQuery}`,
+          refreshToken ? { cache: 'no-store' } : undefined
         );
         if (!response.ok) {
           throw new Error('Failed to fetch history');
@@ -62,7 +67,7 @@ export default function MarketSparkline({ ticker }: MarketSparklineProps) {
     return () => {
       isActive = false;
     };
-  }, [ticker]);
+  }, [ticker, refreshToken]);
 
   const sparkline = useMemo(() => {
     if (!candles.length) return '';

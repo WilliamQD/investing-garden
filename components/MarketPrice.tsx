@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 
 interface MarketPriceProps {
   ticker: string;
+  refreshToken?: number;
 }
 
 interface MarketData {
@@ -12,6 +13,7 @@ interface MarketData {
   changePercent?: number;
   updatedAt?: string;
   stale?: boolean;
+  cached?: boolean;
 }
 
 const DEFAULT_CACHE_TTL = 180_000;
@@ -23,7 +25,7 @@ const CACHE_TTL = Number.isFinite(cacheEnvValue)
   : DEFAULT_CACHE_TTL;
 const marketCache = new Map<string, { data: MarketData; timestamp: number }>();
 
-export default function MarketPrice({ ticker }: MarketPriceProps) {
+export default function MarketPrice({ ticker, refreshToken }: MarketPriceProps) {
   const [data, setData] = useState<MarketData | null>(null);
   const [error, setError] = useState<string>('');
 
@@ -34,15 +36,19 @@ export default function MarketPrice({ ticker }: MarketPriceProps) {
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       setData(cached.data);
       setError('');
-      return () => {
-        isActive = false;
-      };
+      if (!refreshToken) {
+        return () => {
+          isActive = false;
+        };
+      }
     }
     const loadPrice = async () => {
       try {
         setError('');
+        const refreshQuery = refreshToken ? `&refresh=${refreshToken}` : '';
         const response = await fetch(
-          `/api/market?ticker=${encodeURIComponent(normalizedTicker)}`
+          `/api/market?ticker=${encodeURIComponent(normalizedTicker)}${refreshQuery}`,
+          refreshToken ? { cache: 'no-store' } : undefined
         );
         if (!response.ok) {
           throw new Error('Failed to fetch market data');
@@ -55,6 +61,7 @@ export default function MarketPrice({ ticker }: MarketPriceProps) {
             changePercent: result.changePercent,
             updatedAt: result.updatedAt,
             stale: result.stale,
+            cached: result.cached,
           };
           marketCache.set(normalizedTicker, { data: nextData, timestamp: Date.now() });
           setData(nextData);
@@ -70,7 +77,7 @@ export default function MarketPrice({ ticker }: MarketPriceProps) {
     return () => {
       isActive = false;
     };
-  }, [ticker]);
+  }, [ticker, refreshToken]);
 
   if (error) {
     return <p className="market-price market-price-error">{error}</p>;
@@ -85,14 +92,31 @@ export default function MarketPrice({ ticker }: MarketPriceProps) {
       ? `${data.changePercent > 0 ? '+' : ''}${data.changePercent.toFixed(2)}%`
       : null;
 
+  const updatedLabel = data.updatedAt
+    ? new Date(data.updatedAt).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+    : null;
+
   return (
     <div className={`market-price ${data.stale ? 'market-price-stale' : ''}`}>
-      <span className="market-price-label">Price</span>
-      <span className="market-price-value">
-        {data.price.toFixed(2)} {data.currency ?? 'USD'}
-      </span>
-      {change && <span className="market-price-change">{change}</span>}
-      {data.stale && <span className="market-price-note">Stale</span>}
+      <div className="market-price-main">
+        <span className="market-price-label">Price</span>
+        <span className="market-price-value">
+          {data.price.toFixed(2)} {data.currency ?? 'USD'}
+        </span>
+        {change && <span className="market-price-change">{change}</span>}
+        {data.stale && <span className="market-price-note">Stale cache</span>}
+      </div>
+      {updatedLabel && (
+        <div className="market-price-meta">
+          <span>Updated {updatedLabel}</span>
+          {data.cached && !data.stale && <span className="market-price-note">Cached</span>}
+        </div>
+      )}
     </div>
   );
 }

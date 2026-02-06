@@ -692,6 +692,12 @@ body {
   gap: 0.75rem;
 }
 
+.holding-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .holding-ticker {
   margin: 0;
   font-size: 1rem;
@@ -712,6 +718,21 @@ body {
   font-size: 0.7rem;
   padding: 0.35rem 0.75rem;
   cursor: pointer;
+}
+
+.holding-refresh {
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.6);
+  background: rgba(15, 23, 42, 0.85);
+  color: var(--accent);
+  font-size: 0.7rem;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+}
+
+.holding-refresh:hover {
+  background: rgba(56, 189, 248, 0.1);
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35);
 }
 
 .holding-remove:hover {
@@ -1244,9 +1265,27 @@ form {
 .market-price {
   margin-top: 0.5rem;
   display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-items: flex-start;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.market-price-main {
+  display: flex;
   gap: 0.4rem;
   align-items: center;
-  font-size: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.market-price-meta {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: var(--text-muted);
 }
 
@@ -1268,10 +1307,13 @@ form {
 }
 
 .market-price-note {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--text-muted);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+  padding: 0.1rem 0.4rem;
 }
 
 .market-price-stale .market-price-change {
@@ -1279,6 +1321,21 @@ form {
 }
 
 .market-price-error {
+  color: var(--accent-warm);
+}
+
+.performance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.stat-value-positive {
+  color: var(--accent);
+}
+
+.stat-value-negative {
   color: var(--accent-warm);
 }
 
