@@ -8,6 +8,9 @@ const getCount = (value: unknown) => {
   return Number.isNaN(parsed) ? 0 : parsed;
 };
 
+const STATS_CACHE_SECONDS = 60;
+const STATS_CACHE_HEADER = `s-maxage=${STATS_CACHE_SECONDS}, stale-while-revalidate=${STATS_CACHE_SECONDS}`;
+
 export async function GET() {
   try {
     await storage.initialize();
@@ -76,31 +79,34 @@ export async function GET() {
       LIMIT 8
     `;
 
-    return NextResponse.json({
-      totals: {
-        journal: totals.journal,
-        learning: totals.learning,
-        resources: totals.resources,
+    return NextResponse.json(
+      {
+        totals: {
+          journal: totals.journal,
+          learning: totals.learning,
+          resources: totals.resources,
+        },
+        outcomes: {
+          win: outcomes.win,
+          loss: outcomes.loss,
+          flat: outcomes.flat,
+          open: outcomes.open,
+        },
+        dailyJournal: dailyJournal.rows.map(row => ({
+          date: String(row.date),
+          count: getCount(row.count),
+        })),
+        activity: activity.rows.map(row => ({
+          date: String(row.date),
+          count: getCount(row.count),
+        })),
+        topTags: topTags.rows.map(row => ({
+          tag: row.tag,
+          count: getCount(row.count),
+        })),
       },
-      outcomes: {
-        win: outcomes.win,
-        loss: outcomes.loss,
-        flat: outcomes.flat,
-        open: outcomes.open,
-      },
-      dailyJournal: dailyJournal.rows.map(row => ({
-        date: String(row.date),
-        count: getCount(row.count),
-      })),
-      activity: activity.rows.map(row => ({
-        date: String(row.date),
-        count: getCount(row.count),
-      })),
-      topTags: topTags.rows.map(row => ({
-        tag: row.tag,
-        count: getCount(row.count),
-      })),
-    });
+      { headers: { 'Cache-Control': STATS_CACHE_HEADER } }
+    );
   } catch (error) {
     console.error('Error fetching stats:', error);
     return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 });

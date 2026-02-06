@@ -20,6 +20,7 @@ const MAX_BACKUP_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_BACKUP_FORM_BYTES = MAX_BACKUP_FILE_BYTES + 1024 * 1024;
 const INVALID_ENTRIES_MESSAGE = (count: number) =>
   `Backup contains ${count} invalid ${count === 1 ? 'entry' : 'entries'}.`;
+const DUPLICATE_IDS_MESSAGE = 'Backup contains duplicate entry IDs.';
 
 const parseJson = (text: string) => {
   try {
@@ -46,6 +47,16 @@ const normalizeEntries = (type: 'journal' | 'learning' | 'resources', entries: u
   };
 };
 
+const hasDuplicateIds = (entries: Entry[]) => {
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    if (!entry.id) continue;
+    if (seen.has(entry.id)) return true;
+    seen.add(entry.id);
+  }
+  return false;
+};
+
 const normalizeBackupPayload = (payload: Record<string, unknown>) => {
   if (!hasRequiredKeys(payload)) {
     return { error: MISSING_KEYS_MESSAGE };
@@ -60,6 +71,13 @@ const normalizeBackupPayload = (payload: Record<string, unknown>) => {
     journalResult.invalidCount + learningResult.invalidCount + resourcesResult.invalidCount;
   if (invalidCount > 0) {
     return { error: INVALID_ENTRIES_MESSAGE(invalidCount) };
+  }
+  if (
+    hasDuplicateIds(journalResult.entries) ||
+    hasDuplicateIds(learningResult.entries) ||
+    hasDuplicateIds(resourcesResult.entries)
+  ) {
+    return { error: DUPLICATE_IDS_MESSAGE };
   }
   return {
     data: {
@@ -97,6 +115,7 @@ export async function GET(request: Request) {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': 'attachment; filename="investing-garden-backup.zip"',
+        'Cache-Control': 'no-store',
       },
     });
   }
@@ -105,6 +124,7 @@ export async function GET(request: Request) {
     headers: {
       'Content-Type': 'application/json',
       'Content-Disposition': 'attachment; filename="investing-garden-backup.json"',
+      'Cache-Control': 'no-store',
     },
   });
 }

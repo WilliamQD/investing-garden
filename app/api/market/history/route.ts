@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 
+import { normalizeTicker } from '@/lib/validation';
+
 type Candle = {
   datetime: string;
   close: string;
 };
 
+const ALLOWED_INTERVALS = new Set(['1day', '1week', '1month']);
 const DEFAULT_CACHE_TTL_SECONDS = 240;
 const MIN_CACHE_TTL_SECONDS = 60;
 const MAX_CACHE_TTL_SECONDS = 300;
@@ -18,11 +21,21 @@ const historyCache = new Map<string, { data: { candles: Candle[]; updatedAt: str
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const ticker = searchParams.get('ticker')?.trim().toUpperCase();
+  const normalizedTicker = normalizeTicker(searchParams.get('ticker'));
   const interval = searchParams.get('interval')?.trim() || '1day';
-  if (!ticker) {
-    return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
+  if (!normalizedTicker) {
+    return NextResponse.json(
+      { error: 'Ticker must be 1-10 characters (letters, numbers, . or -)' },
+      { status: 400 }
+    );
   }
+  if (!ALLOWED_INTERVALS.has(interval)) {
+    return NextResponse.json(
+      { error: 'Interval must be one of: 1day, 1week, 1month' },
+      { status: 400 }
+    );
+  }
+  const ticker = normalizedTicker;
 
   const cacheKey = `${ticker}-${interval}`;
   const cached = historyCache.get(cacheKey);

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { normalizeTicker } from '@/lib/validation';
+
 type QuotePayload = {
   price: number;
   currency?: string;
@@ -20,10 +22,14 @@ const quoteCache = new Map<string, { data: QuotePayload; timestamp: number }>();
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const ticker = searchParams.get('ticker')?.trim().toUpperCase();
-  if (!ticker) {
-    return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
+  const normalizedTicker = normalizeTicker(searchParams.get('ticker'));
+  if (!normalizedTicker) {
+    return NextResponse.json(
+      { error: 'Ticker must be 1-10 characters (letters, numbers, . or -)' },
+      { status: 400 }
+    );
   }
+  const ticker = normalizedTicker;
 
   const cached = quoteCache.get(ticker);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
