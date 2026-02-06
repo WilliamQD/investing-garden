@@ -183,7 +183,7 @@ export const normalizeSettingsInput = (
   const focusAreas: string[] = [];
   for (const area of focusAreasInput) {
     if (focusAreas.length >= MAX_FOCUS_AREAS) {
-      return { error: `Focus areas must be ${MAX_FOCUS_AREAS} items or fewer.` };
+      return { error: `Cannot exceed ${MAX_FOCUS_AREAS} focus areas.` };
     }
     if (typeof area !== 'string') continue;
     const trimmed = area.trim();

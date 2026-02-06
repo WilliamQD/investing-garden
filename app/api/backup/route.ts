@@ -49,10 +49,16 @@ const normalizeEntries = (type: 'journal' | 'learning' | 'resources', entries: u
 
 const hasDuplicateIds = (entries: Entry[]) => {
   const seen = new Set<string>();
+  let emptyIdSeen = false;
   for (const entry of entries) {
-    if (!entry.id) continue;
-    if (seen.has(entry.id)) return true;
-    seen.add(entry.id);
+    const id = entry.id?.trim();
+    if (!id) {
+      if (emptyIdSeen) return true;
+      emptyIdSeen = true;
+      continue;
+    }
+    if (seen.has(id)) return true;
+    seen.add(id);
   }
   return false;
 };

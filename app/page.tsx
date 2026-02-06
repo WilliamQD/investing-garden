@@ -305,9 +305,11 @@ export default function Home() {
     return holdings.filter(
       holding =>
         holding.ticker.toLowerCase().includes(query) ||
-        holding.label?.toLowerCase().includes(query)
+        holding.label?.toLowerCase()?.includes(query)
     );
   }, [holdings, holdingsQuery]);
+  const snapshotDeltaPrefix =
+    snapshotDelta == null ? '' : snapshotDelta > 0 ? '+' : snapshotDelta < 0 ? '-' : '';
 
   return (
     <>
@@ -491,7 +493,7 @@ export default function Home() {
                         <p className="stat-label">Change</p>
                         <p className="stat-value">
                           {snapshotDelta != null
-                            ? `${snapshotDelta > 0 ? '+' : snapshotDelta < 0 ? '-' : ''}$${Math.abs(snapshotDelta).toLocaleString()}`
+                            ? `${snapshotDeltaPrefix}$${Math.abs(snapshotDelta).toLocaleString()}`
                             : '--'}
                         </p>
                         <p className="stat-sub">
