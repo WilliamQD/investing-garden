@@ -5,7 +5,7 @@ Investing Garden is a clean, industrial workspace for tracking portfolio progres
 ## Features
 
 - **Dashboard view**: Portfolio snapshot chart + live holdings tracker
-- **Holdings watchlist**: Add symbols and see live prices with recent trendlines
+- **Holdings watchlist**: Add symbols, bulk import from CSV, and see live prices with recent trendlines
 - **Trade journal**: Log trades with rationale, emotion, and outcomes
 - **Knowledge hub**: Merge learning notes and external resources into one library
 - **Admin-only edits**: Public read access with token-protected write actions
@@ -80,7 +80,7 @@ Click the Visitor/Admin pill in the header, paste the `ADMIN_TOKEN`, and activat
 ### Dashboard workflows
 
 - Add daily portfolio snapshots to build the account trajectory chart.
-- Add holdings symbols to monitor live prices and recent price trends.
+- Add holdings symbols (or paste a CSV list) to monitor live prices and recent price trends.
 
 ### Knowledge hub
 

@@ -8,6 +8,7 @@ import KnowledgeSection from '@/components/KnowledgeSection';
 import Section from '@/components/Section';
 import StatsPanel from '@/components/StatsPanel';
 import { useAdmin } from '@/lib/admin-client';
+import holdingsImport from '@/lib/holdings-import';
 import portfolioMetrics from '@/lib/portfolio-metrics';
 
 type SectionKey = 'dashboard' | 'journal' | 'knowledge' | 'stats';
@@ -37,6 +38,10 @@ export default function Home() {
   const [newValue, setNewValue] = useState('');
   const [newTicker, setNewTicker] = useState('');
   const [newLabel, setNewLabel] = useState('');
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const [bulkStatus, setBulkStatus] = useState('');
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
   const [holdingsQuery, setHoldingsQuery] = useState('');
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SETTINGS);
   const [settingsDraft, setSettingsDraft] = useState<SiteSettings>(DEFAULT_SETTINGS);
@@ -191,6 +196,64 @@ export default function Home() {
     }
   };
 
+  const handleBulkImport = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!hasAdminToken) {
+      setBulkStatus('Enter the admin token to import holdings.');
+      return;
+    }
+    if (bulkPreview.errors.length) {
+      setBulkStatus('Resolve the import issues before submitting.');
+      return;
+    }
+    if (!bulkPreview.holdings.length) {
+      setBulkStatus('Add at least one holding to import.');
+      return;
+    }
+    try {
+      setBulkSubmitting(true);
+      setBulkStatus('');
+      const response = await fetch('/api/portfolio/holdings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({ holdings: bulkPreview.holdings }),
+        credentials: 'include',
+      });
+      if (response.status === 401) {
+        setBulkStatus('Enter the admin token to import holdings.');
+        return;
+      }
+      if (!response.ok) {
+        throw new Error('Failed to import holdings');
+      }
+      const result = await response.json();
+      const imported = Array.isArray(result.holdings) ? result.holdings : [];
+      setHoldings(prev => {
+        const next = [...prev];
+        imported.forEach((holding: Holding) => {
+          const index = next.findIndex(item => item.id === holding.id);
+          if (index >= 0) {
+            next[index] = holding;
+          } else {
+            next.unshift(holding);
+          }
+        });
+        return next;
+      });
+      const skipped = Number(result.skipped) || 0;
+      setBulkStatus(
+        `Imported ${imported.length} holding${imported.length === 1 ? '' : 's'}${skipped ? ` · ${skipped} duplicate${skipped === 1 ? '' : 's'} skipped` : ''}.`
+      );
+      setBulkText('');
+      setBulkOpen(false);
+    } catch (error) {
+      console.error('Error importing holdings:', error);
+      setBulkStatus('Unable to import holdings right now.');
+    } finally {
+      setBulkSubmitting(false);
+    }
+  };
+
   const handleRemoveHolding = async (id: string) => {
     try {
       if (!hasAdminToken) {
@@ -214,6 +277,31 @@ export default function Home() {
     } catch (error) {
       console.error('Error removing holding:', error);
       setStatusMessage('Unable to remove holding right now.');
+    }
+  };
+
+  const handleUpdateHoldingLabel = async (id: string, label: string) => {
+    try {
+      const response = await fetch(`/api/portfolio/holdings/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({ label }),
+        credentials: 'include',
+      });
+      if (response.status === 401) {
+        setStatusMessage('Enter the admin token to update holding labels.');
+        throw new Error('Unauthorized');
+      }
+      if (!response.ok) {
+        throw new Error('Failed to update holding');
+      }
+      const updated = await response.json();
+      setHoldings(prev => prev.map(item => (item.id === updated.id ? updated : item)));
+      setStatusMessage('');
+    } catch (error) {
+      console.error('Error updating holding label:', error);
+      setStatusMessage('Unable to update holding label right now.');
+      throw error;
     }
   };
 
@@ -304,6 +392,10 @@ export default function Home() {
   const performanceHighlights = useMemo(
     () => portfolioMetrics.getPerformanceHighlights(snapshots),
     [snapshots]
+  );
+  const bulkPreview = useMemo(
+    () => holdingsImport.parseHoldingsCsv(bulkText),
+    [bulkText]
   );
   const filteredHoldings = useMemo(() => {
     if (!holdingsQuery.trim()) return holdings;
@@ -616,6 +708,83 @@ export default function Home() {
                   <p className="admin-hint">Enable admin mode to add holdings.</p>
                 )}
               </div>
+              {hasAdminToken && (
+                <div className="holdings-import">
+                  <div className="holdings-import-header">
+                    <div>
+                      <p className="eyebrow-alt">Bulk import</p>
+                      <p className="panel-sub">Paste a CSV to add multiple tickers at once.</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setBulkOpen(prev => !prev)}
+                    >
+                      {bulkOpen ? 'Close importer' : 'Open importer'}
+                    </button>
+                  </div>
+                  {bulkOpen && (
+                    <form className="holdings-import-form" onSubmit={handleBulkImport}>
+                      <label>
+                        Holdings list (Ticker, Label)
+                        <textarea
+                          value={bulkText}
+                          onChange={(event) => {
+                            setBulkText(event.target.value);
+                            if (bulkStatus) setBulkStatus('');
+                          }}
+                          placeholder={`ticker,label\nAAPL, Core position\nMSFT\nNVDA, Momentum\n(limit ${holdingsImport.MAX_BULK_HOLDINGS})`}
+                          rows={5}
+                        />
+                      </label>
+                      <div className="holdings-import-meta">
+                        <span>{bulkPreview.holdings.length} ready</span>
+                        {bulkPreview.skipped > 0 && (
+                          <span>
+                            {bulkPreview.skipped} duplicate{bulkPreview.skipped === 1 ? '' : 's'} skipped
+                          </span>
+                        )}
+                        {bulkPreview.errors.length > 0 && (
+                          <span>
+                            {bulkPreview.errors.length} issue{bulkPreview.errors.length === 1 ? '' : 's'} to fix
+                          </span>
+                        )}
+                      </div>
+                      {bulkPreview.errors.length > 0 && (
+                        <ul className="holdings-import-errors">
+                          {bulkPreview.errors.map((error: { line?: number; message: string }, index: number) => (
+                            <li key={`${error.line ?? 'general'}-${index}`}>
+                              {error.line ? `Line ${error.line}: ` : ''}
+                              {error.message}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <div className="holdings-import-actions">
+                        <button
+                          type="submit"
+                          className="btn-primary"
+                          disabled={bulkSubmitting || !bulkPreview.holdings.length || bulkPreview.errors.length > 0}
+                        >
+                          {bulkSubmitting ? 'Importing...' : 'Import holdings'}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => {
+                            setBulkText('');
+                            setBulkStatus('');
+                          }}
+                          disabled={bulkSubmitting}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                  {bulkStatus && <p className="auth-message">{bulkStatus}</p>}
+                </div>
+              )}
               {holdings.length > 0 && (
                 <div className="holdings-controls">
                   <label>
@@ -640,6 +809,7 @@ export default function Home() {
                       holding={holding}
                       canEdit={hasAdminToken}
                       onRemove={handleRemoveHolding}
+                      onUpdateLabel={handleUpdateHoldingLabel}
                     />
                   ))
                 ) : (

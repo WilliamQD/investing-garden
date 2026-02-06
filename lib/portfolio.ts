@@ -157,12 +157,45 @@ export async function addHolding(ticker: string, label?: string): Promise<Holdin
   return mapHolding(rows[0]);
 }
 
+export async function addHoldings(holdings: { ticker: string; label?: string }[]): Promise<Holding[]> {
+  await ensureTables();
+  const results: Holding[] = [];
+  for (const holding of holdings) {
+    const normalizedTicker = holding.ticker.trim().toUpperCase();
+    const createdAt = new Date().toISOString();
+    const id = randomUUID();
+    const { rows } = await sql`
+      INSERT INTO portfolio_holdings (id, ticker, label, created_at)
+      VALUES (${id}, ${normalizedTicker}, ${holding.label ?? null}, ${createdAt})
+      ON CONFLICT (ticker)
+      DO UPDATE SET label = COALESCE(EXCLUDED.label, portfolio_holdings.label)
+      RETURNING id, ticker, label, created_at
+    `;
+    results.push(mapHolding(rows[0]));
+  }
+  return results;
+}
+
 export async function deleteHolding(id: string): Promise<boolean> {
   await ensureTables();
   const result = await sql`
     DELETE FROM portfolio_holdings WHERE id = ${id}
   `;
   return (result.rowCount ?? 0) > 0;
+}
+
+export async function updateHoldingLabel(id: string, label: string | null): Promise<Holding | null> {
+  await ensureTables();
+  const { rows } = await sql`
+    UPDATE portfolio_holdings
+    SET label = ${label}
+    WHERE id = ${id}
+    RETURNING id, ticker, label, created_at
+  `;
+  if (!rows[0]) {
+    return null;
+  }
+  return mapHolding(rows[0]);
 }
 
 export async function getSiteSettings(): Promise<SiteSettings> {
