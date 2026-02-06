@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 import MarketPrice from './MarketPrice';
 import MarketSparkline from './MarketSparkline';
 
@@ -16,6 +18,8 @@ interface HoldingCardProps {
 }
 
 export default function HoldingCard({ holding, canEdit, onRemove }: HoldingCardProps) {
+  const [refreshToken, setRefreshToken] = useState(0);
+
   return (
     <article className="holding-card">
       <div className="holding-header">
@@ -23,14 +27,25 @@ export default function HoldingCard({ holding, canEdit, onRemove }: HoldingCardP
           <p className="holding-ticker">{holding.ticker}</p>
           {holding.label && <p className="holding-label">{holding.label}</p>}
         </div>
-        {canEdit && (
-          <button className="holding-remove" onClick={() => onRemove(holding.id)} type="button">
-            Remove
+        <div className="holding-actions">
+          <button
+            className="holding-refresh"
+            onClick={() => setRefreshToken(prev => prev + 1)}
+            type="button"
+            title={`Refresh ${holding.ticker} market data`}
+            aria-label={`Refresh ${holding.ticker} market data`}
+          >
+            Refresh
           </button>
-        )}
+          {canEdit && (
+            <button className="holding-remove" onClick={() => onRemove(holding.id)} type="button">
+              Remove
+            </button>
+          )}
+        </div>
       </div>
-      <MarketPrice ticker={holding.ticker} />
-      <MarketSparkline ticker={holding.ticker} />
+      <MarketPrice ticker={holding.ticker} refreshToken={refreshToken} />
+      <MarketSparkline ticker={holding.ticker} refreshToken={refreshToken} />
     </article>
   );
 }

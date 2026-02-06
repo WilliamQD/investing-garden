@@ -8,6 +8,7 @@ import KnowledgeSection from '@/components/KnowledgeSection';
 import Section from '@/components/Section';
 import StatsPanel from '@/components/StatsPanel';
 import { useAdmin } from '@/lib/admin-client';
+import portfolioMetrics from '@/lib/portfolio-metrics';
 
 type SectionKey = 'dashboard' | 'journal' | 'knowledge' | 'stats';
 
@@ -300,6 +301,10 @@ export default function Home() {
       ? (snapshotDelta / firstSnapshotValue) * 100
       : null;
   const getPositivePrefix = (value: number | null) => (value != null && value > 0 ? '+' : '');
+  const performanceHighlights = useMemo(
+    () => portfolioMetrics.getPerformanceHighlights(snapshots),
+    [snapshots]
+  );
   const filteredHoldings = useMemo(() => {
     if (!holdingsQuery.trim()) return holdings;
     const query = holdingsQuery.trim().toLowerCase();
@@ -309,6 +314,32 @@ export default function Home() {
         holding.label?.toLowerCase().includes(query)
     );
   }, [holdings, holdingsQuery]);
+  const formatShortDate = (date: string) =>
+    new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const formatPeriodValue = (value: number) =>
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      signDisplay: 'exceptZero',
+      maximumFractionDigits: 0,
+    }).format(value);
+  const DAILY_CADENCE_THRESHOLD = 1.5;
+  const cadenceLabel =
+    performanceHighlights.cadence.averageGapDays != null
+      ? performanceHighlights.cadence.averageGapDays <= DAILY_CADENCE_THRESHOLD
+        ? 'Daily'
+        : `Every ${Math.round(performanceHighlights.cadence.averageGapDays)} days`
+      : 'No cadence yet';
+  const cadenceSub =
+    performanceHighlights.cadence.lastSnapshotDate != null
+      ? `Last snapshot ${formatShortDate(performanceHighlights.cadence.lastSnapshotDate)}${
+        performanceHighlights.cadence.daysSinceLast != null
+          ? performanceHighlights.cadence.daysSinceLast === 0
+            ? ' · today'
+            : ` · ${performanceHighlights.cadence.daysSinceLast}d ago`
+          : ''
+      }`
+      : 'Add a snapshot to start tracking.';
 
   return (
     <>
@@ -510,6 +541,42 @@ export default function Home() {
                 ) : (
                   <p className="empty-message">Add your first snapshot to see the graph.</p>
                 )}
+                <div className="performance-grid">
+                  {performanceHighlights.periods.map(period => {
+                    const periodValue =
+                      period.deltaPercent != null
+                        ? `${getPositivePrefix(period.deltaPercent)}${period.deltaPercent.toFixed(1)}%`
+                        : '--';
+                    const periodClass =
+                      period.deltaPercent != null
+                        ? period.deltaPercent > 0
+                          ? 'stat-value-positive'
+                          : period.deltaPercent < 0
+                            ? 'stat-value-negative'
+                            : ''
+                        : '';
+                    const periodSub =
+                      period.delta != null && period.startDate
+                        ? `${formatPeriodValue(period.delta)} since ${formatShortDate(period.startDate)}${
+                          period.isPartial ? ' · partial' : ''
+                        }`
+                        : snapshots.length
+                          ? 'Not enough history yet.'
+                          : 'Add snapshots to see performance.';
+                    return (
+                      <div className="stat-card small" key={period.label}>
+                        <div className="stat-label">{period.label} performance</div>
+                        <div className={`stat-value ${periodClass}`.trim()}>{periodValue}</div>
+                        <div className="stat-sub">{periodSub}</div>
+                      </div>
+                    );
+                  })}
+                  <div className="stat-card small">
+                    <div className="stat-label">Snapshot cadence</div>
+                    <div className="stat-value">{cadenceLabel}</div>
+                    <div className="stat-sub">{cadenceSub}</div>
+                  </div>
+                </div>
               </div>
             </section>
 

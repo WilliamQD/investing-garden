@@ -23,6 +23,7 @@ const quoteCache = new Map<string, { data: QuotePayload; timestamp: number }>();
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const normalizedTicker = normalizeTicker(searchParams.get('ticker'));
+  const forceRefresh = Boolean(searchParams.get('refresh'));
   if (!normalizedTicker) {
     return NextResponse.json(
       { error: 'Ticker must be 1-10 characters (letters, numbers, . or -)' },
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
     );
   }
   const cached = quoteCache.get(normalizedTicker);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+  if (!forceRefresh && cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return NextResponse.json(
       { ticker: normalizedTicker, ...cached.data, cached: true },
       { headers: { 'Cache-Control': CACHE_HEADER } }
