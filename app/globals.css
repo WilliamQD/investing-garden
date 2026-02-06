@@ -647,6 +647,67 @@ body {
   margin-top: 0.75rem;
 }
 
+.holdings-import {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px dashed rgba(148, 163, 184, 0.5);
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.holdings-import-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.holdings-import-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.holdings-import-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.holdings-import-form textarea {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 0.6rem 0.7rem;
+  color: var(--text-main);
+  min-height: 120px;
+}
+
+.holdings-import-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.holdings-import-errors {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--accent-warm);
+  font-size: 0.75rem;
+}
+
+.holdings-import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
 .holdings-controls label {
   display: flex;
   flex-direction: column;
@@ -710,6 +771,72 @@ body {
   color: var(--text-muted);
 }
 
+.holding-label-muted {
+  color: rgba(148, 163, 184, 0.7);
+  font-style: italic;
+}
+
+.holding-edit {
+  margin-top: 0.35rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.holding-edit label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.holding-edit input {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 0.35rem 0.6rem;
+  color: var(--text-main);
+  font-size: 0.8rem;
+}
+
+.holding-edit-error {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--accent-warm);
+}
+
+.holding-edit-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.holding-edit-actions button {
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(15, 23, 42, 0.8);
+  color: var(--text-main);
+  font-size: 0.7rem;
+  padding: 0.3rem 0.65rem;
+  cursor: pointer;
+}
+
+.holding-edit-save {
+  border-color: rgba(56, 189, 248, 0.6);
+  color: var(--accent);
+}
+
+.holding-edit-save:hover {
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.holding-edit-cancel:hover {
+  color: var(--accent-warm);
+  border-color: var(--accent-warm);
+}
+
 .holding-remove {
   border-radius: 999px;
   border: 1px solid var(--border-subtle);
@@ -733,6 +860,21 @@ body {
 .holding-refresh:hover {
   background: rgba(56, 189, 248, 0.1);
   box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35);
+}
+
+.holding-edit-toggle {
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(15, 23, 42, 0.85);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+}
+
+.holding-edit-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .holding-remove:hover {

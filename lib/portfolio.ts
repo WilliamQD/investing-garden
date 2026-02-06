@@ -157,12 +157,49 @@ export async function addHolding(ticker: string, label?: string): Promise<Holdin
   return mapHolding(rows[0]);
 }
 
+export async function addHoldings(holdings: { ticker: string; label?: string }[]): Promise<Holding[]> {
+  await ensureTables();
+  if (!holdings.length) return [];
+  const values: (string | null)[] = [];
+  const rows = holdings.map((holding, index) => {
+    const id = randomUUID();
+    const normalizedTicker = holding.ticker.trim().toUpperCase();
+    const createdAt = new Date().toISOString();
+    const offset = index * 4;
+    values.push(id, normalizedTicker, holding.label ?? null, createdAt);
+    return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`;
+  });
+  const query = `
+    INSERT INTO portfolio_holdings (id, ticker, label, created_at)
+    VALUES ${rows.join(', ')}
+    ON CONFLICT (ticker)
+    DO UPDATE SET label = COALESCE(EXCLUDED.label, portfolio_holdings.label)
+    RETURNING id, ticker, label, created_at
+  `;
+  const result = await sql.query(query, values);
+  return result.rows.map(row => mapHolding(row));
+}
+
 export async function deleteHolding(id: string): Promise<boolean> {
   await ensureTables();
   const result = await sql`
     DELETE FROM portfolio_holdings WHERE id = ${id}
   `;
   return (result.rowCount ?? 0) > 0;
+}
+
+export async function updateHoldingLabel(id: string, label: string | null): Promise<Holding | null> {
+  await ensureTables();
+  const { rows } = await sql`
+    UPDATE portfolio_holdings
+    SET label = ${label}
+    WHERE id = ${id}
+    RETURNING id, ticker, label, created_at
+  `;
+  if (!rows[0]) {
+    return null;
+  }
+  return mapHolding(rows[0]);
 }
 
 export async function getSiteSettings(): Promise<SiteSettings> {
