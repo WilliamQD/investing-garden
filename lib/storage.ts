@@ -73,6 +73,18 @@ async function ensureTables() {
           updated_at timestamptz NOT NULL
         )
       `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS journal_entries_created_at_idx
+        ON journal_entries (created_at DESC)
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS learning_entries_created_at_idx
+        ON learning_entries (created_at DESC)
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS resource_entries_created_at_idx
+        ON resource_entries (created_at DESC)
+      `;
     })();
   }
   await initialized;

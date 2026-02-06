@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getAuthorizedSession } from '@/lib/auth';
 import { storage } from '@/lib/storage';
+import { normalizeEntryInput } from '@/lib/validation';
 
 export async function GET(
   request: Request,
@@ -31,20 +32,15 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const body = await request.json();
-    const { title, content, outcome, emotion, tags, ticker } = body;
-
-    if (!title || !content) {
-      return NextResponse.json({ error: 'Title and content are required' }, { status: 400 });
+    if (!body || Array.isArray(body) || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid request payload' }, { status: 400 });
+    }
+    const normalized = normalizeEntryInput('journal', body as Record<string, unknown>);
+    if (!normalized.data) {
+      return NextResponse.json({ error: normalized.error ?? 'Invalid entry payload' }, { status: 400 });
     }
 
-    const entry = await storage.update('journal', id, {
-      title,
-      content,
-      outcome,
-      emotion,
-      tags,
-      ticker,
-    });
+    const entry = await storage.update('journal', id, normalized.data);
     if (!entry) {
       return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
     }
