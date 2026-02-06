@@ -57,7 +57,7 @@ export default function AuthControls() {
               {hasAdminToken ? 'Admin mode active' : 'Visitor mode'}
             </p>
             <p className="auth-status-sub">
-              Edits {hasAdminToken ? 'enabled' : 'locked'} · Token stays in this browser session only.
+              Edits {hasAdminToken ? 'enabled' : 'locked'} - Token stays in this browser session only.
             </p>
           </div>
           <label className="auth-label">
