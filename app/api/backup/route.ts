@@ -48,19 +48,20 @@ const normalizeEntries = (type: 'journal' | 'learning' | 'resources', entries: u
   };
 };
 
-const hasDuplicateIds = (entries: Entry[]) => {
+const validateEntryIds = (entries: Entry[]) => {
   const seen = new Set<string>();
   for (const entry of entries) {
     const id = entry.id?.trim();
-    if (!id) continue;
-    if (seen.has(id)) return true;
+    if (!id) {
+      return MISSING_IDS_MESSAGE;
+    }
+    if (seen.has(id)) {
+      return DUPLICATE_IDS_MESSAGE;
+    }
     seen.add(id);
   }
-  return false;
+  return null;
 };
-
-const hasMissingIds = (entries: Entry[]) =>
-  entries.some(entry => !entry.id || !entry.id.trim());
 
 const normalizeBackupPayload = (payload: Record<string, unknown>) => {
   if (!hasRequiredKeys(payload)) {
@@ -77,19 +78,12 @@ const normalizeBackupPayload = (payload: Record<string, unknown>) => {
   if (invalidCount > 0) {
     return { error: INVALID_ENTRIES_MESSAGE(invalidCount) };
   }
-  if (
-    hasMissingIds(journalResult.entries) ||
-    hasMissingIds(learningResult.entries) ||
-    hasMissingIds(resourcesResult.entries)
-  ) {
-    return { error: MISSING_IDS_MESSAGE };
-  }
-  if (
-    hasDuplicateIds(journalResult.entries) ||
-    hasDuplicateIds(learningResult.entries) ||
-    hasDuplicateIds(resourcesResult.entries)
-  ) {
-    return { error: DUPLICATE_IDS_MESSAGE };
+  const idError =
+    validateEntryIds(journalResult.entries) ??
+    validateEntryIds(learningResult.entries) ??
+    validateEntryIds(resourcesResult.entries);
+  if (idError) {
+    return { error: idError };
   }
   return {
     data: {

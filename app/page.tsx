@@ -299,7 +299,7 @@ export default function Home() {
     snapshotDelta != null && firstSnapshotValue != null && firstSnapshotValue !== 0
       ? (snapshotDelta / firstSnapshotValue) * 100
       : null;
-  const getSignPrefix = (value: number | null) => (value != null && value > 0 ? '+' : '');
+  const getPositivePrefix = (value: number | null) => (value != null && value > 0 ? '+' : '');
   const filteredHoldings = useMemo(() => {
     if (!holdingsQuery.trim()) return holdings;
     const query = holdingsQuery.trim().toLowerCase();
@@ -492,12 +492,12 @@ export default function Home() {
                         <p className="stat-label">Change</p>
                         <p className="stat-value">
                           {snapshotDelta != null
-                            ? `${getSignPrefix(snapshotDelta)}$${snapshotDelta.toLocaleString()}`
+                            ? `${getPositivePrefix(snapshotDelta)}$${snapshotDelta.toLocaleString()}`
                             : '--'}
                         </p>
                         <p className="stat-sub">
                           {snapshotDeltaPercent != null
-                            ? `${getSignPrefix(snapshotDeltaPercent)}${snapshotDeltaPercent.toFixed(1)}% since start`
+                            ? `${getPositivePrefix(snapshotDeltaPercent)}${snapshotDeltaPercent.toFixed(1)}% since start`
                             : 'Add snapshots to see change.'}
                         </p>
                       </div>
