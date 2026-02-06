@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getAuthorizedSession } from '@/lib/auth';
 import { getSiteSettings, updateSiteSettings } from '@/lib/portfolio';
+import { normalizeSettingsInput } from '@/lib/validation';
 
 export async function GET() {
   try {
@@ -20,7 +21,14 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const body = await request.json();
-    const settings = await updateSiteSettings(body ?? {});
+    if (!body || Array.isArray(body) || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid settings payload' }, { status: 400 });
+    }
+    const normalized = normalizeSettingsInput(body as Record<string, unknown>);
+    if (!normalized.data) {
+      return NextResponse.json({ error: normalized.error ?? 'Invalid settings payload' }, { status: 400 });
+    }
+    const settings = await updateSiteSettings(normalized.data);
     return NextResponse.json(settings);
   } catch (error) {
     console.error('Error updating site settings:', error);

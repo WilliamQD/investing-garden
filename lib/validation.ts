@@ -1,5 +1,6 @@
 import 'server-only';
 
+import type { SiteSettings } from '@/lib/portfolio';
 import type { Entry, EntryType } from '@/lib/storage';
 
 const MAX_TITLE_LENGTH = 120;
@@ -11,6 +12,10 @@ const MAX_TAG_LENGTH = 24;
 const MAX_TICKER_LENGTH = 10;
 const MAX_LABEL_LENGTH = 60;
 const MAX_ID_LENGTH = 128;
+const MAX_SETTINGS_HEADLINE = 80;
+const MAX_SETTINGS_SUMMARY = 280;
+const MAX_FOCUS_AREAS = 6;
+const MAX_FOCUS_AREA_LENGTH = 24;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TICKER_PATTERN = /^[A-Z0-9.-]+$/;
 
@@ -163,5 +168,41 @@ export const normalizeBackupEntry = (type: EntryType, entry: unknown): Entry | n
     createdAt,
     updatedAt,
     ...dataResult.data,
+  };
+};
+
+export const normalizeSettingsInput = (
+  payload: Record<string, unknown>
+): { data?: SiteSettings; error?: string } => {
+  const headline = normalizeRequiredText(payload.headline, MAX_SETTINGS_HEADLINE);
+  const summary = normalizeRequiredText(payload.summary, MAX_SETTINGS_SUMMARY);
+  if (!headline || !summary) {
+    return { error: 'Headline and summary are required.' };
+  }
+  if (payload.focusAreas != null && !Array.isArray(payload.focusAreas)) {
+    return { error: 'Focus areas must be an array.' };
+  }
+  const focusAreasInput = Array.isArray(payload.focusAreas) ? payload.focusAreas : [];
+  const focusAreas: string[] = [];
+  for (const area of focusAreasInput) {
+    if (focusAreas.length >= MAX_FOCUS_AREAS) {
+      return { error: `Cannot exceed ${MAX_FOCUS_AREAS} focus areas.` };
+    }
+    if (typeof area !== 'string') {
+      return { error: 'Focus areas must be strings.' };
+    }
+    const trimmed = area.trim();
+    if (!trimmed) continue;
+    if (trimmed.length > MAX_FOCUS_AREA_LENGTH) {
+      return { error: `Focus areas must be ${MAX_FOCUS_AREA_LENGTH} characters or fewer.` };
+    }
+    focusAreas.push(trimmed);
+  }
+  return {
+    data: {
+      headline,
+      summary,
+      focusAreas,
+    },
   };
 };

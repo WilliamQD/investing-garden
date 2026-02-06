@@ -36,6 +36,7 @@ export default function Home() {
   const [newValue, setNewValue] = useState('');
   const [newTicker, setNewTicker] = useState('');
   const [newLabel, setNewLabel] = useState('');
+  const [holdingsQuery, setHoldingsQuery] = useState('');
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SETTINGS);
   const [settingsDraft, setSettingsDraft] = useState<SiteSettings>(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -290,6 +291,24 @@ export default function Home() {
   const latestSnapshot = orderedPoints[orderedPoints.length - 1];
   const latestSnapshotValue = latestSnapshot?.value;
   const firstSnapshotValue = orderedPoints[0]?.value;
+  const snapshotDelta =
+    latestSnapshotValue != null && firstSnapshotValue != null
+      ? latestSnapshotValue - firstSnapshotValue
+      : null;
+  const snapshotDeltaPercent =
+    snapshotDelta != null && firstSnapshotValue != null && firstSnapshotValue !== 0
+      ? (snapshotDelta / firstSnapshotValue) * 100
+      : null;
+  const getPositivePrefix = (value: number | null) => (value != null && value > 0 ? '+' : '');
+  const filteredHoldings = useMemo(() => {
+    if (!holdingsQuery.trim()) return holdings;
+    const query = holdingsQuery.trim().toLowerCase();
+    return holdings.filter(
+      holding =>
+        holding.ticker.toLowerCase().includes(query) ||
+        holding.label?.toLowerCase().includes(query)
+    );
+  }, [holdings, holdingsQuery]);
 
   return (
     <>
@@ -386,6 +405,30 @@ export default function Home() {
               </div>
             </section>
 
+            {(portfolioError || holdingsError) && (
+              <div className="status-banner">
+                <div>
+                  <p className="status-title">Data connection issues</p>
+                  <ul className="status-list">
+                    {portfolioError && <li>{portfolioError}</li>}
+                    {holdingsError && <li>{holdingsError}</li>}
+                  </ul>
+                </div>
+                <div className="status-actions">
+                  {portfolioError && (
+                    <button type="button" onClick={() => void loadSnapshots()}>
+                      Retry snapshots
+                    </button>
+                  )}
+                  {holdingsError && (
+                    <button type="button" onClick={() => void loadHoldings()}>
+                      Retry holdings
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             <section className="portfolio-section">
               <div className="portfolio-header">
                 <div>
@@ -419,7 +462,6 @@ export default function Home() {
                   <p className="admin-hint">Enable admin mode to add snapshots.</p>
                 )}
               </div>
-              {portfolioError && <p className="auth-message">{portfolioError}</p>}
               {statusMessage && <p className="auth-message">{statusMessage}</p>}
               <div className="portfolio-graph">
                 {orderedPoints.length ? (
@@ -444,6 +486,19 @@ export default function Home() {
                         <p className="stat-label">Start</p>
                         <p className="stat-value">
                           {firstSnapshotValue != null ? `$${firstSnapshotValue.toLocaleString()}` : '--'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="stat-label">Change</p>
+                        <p className="stat-value">
+                          {snapshotDelta != null
+                            ? `${getPositivePrefix(snapshotDelta)}$${snapshotDelta.toLocaleString()}`
+                            : '--'}
+                        </p>
+                        <p className="stat-sub">
+                          {snapshotDeltaPercent != null
+                            ? `${getPositivePrefix(snapshotDeltaPercent)}${snapshotDeltaPercent.toFixed(1)}% since start`
+                            : 'Add snapshots to see change.'}
                         </p>
                       </div>
                       <div>
@@ -494,10 +549,25 @@ export default function Home() {
                   <p className="admin-hint">Enable admin mode to add holdings.</p>
                 )}
               </div>
-              {holdingsError && <p className="auth-message">{holdingsError}</p>}
+              {holdings.length > 0 && (
+                <div className="holdings-controls">
+                  <label>
+                    Search holdings
+                    <input
+                      type="text"
+                      value={holdingsQuery}
+                      onChange={(e) => setHoldingsQuery(e.target.value)}
+                      placeholder="Filter by ticker or label"
+                    />
+                  </label>
+                  <p className="holdings-count">
+                    {filteredHoldings.length} of {holdings.length} holdings
+                  </p>
+                </div>
+              )}
               <div className="holdings-grid">
-                {holdings.length ? (
-                  holdings.map(holding => (
+                {filteredHoldings.length ? (
+                  filteredHoldings.map(holding => (
                     <HoldingCard
                       key={holding.id}
                       holding={holding}
@@ -506,7 +576,11 @@ export default function Home() {
                     />
                   ))
                 ) : (
-                  <p className="empty-message">No holdings yet. Add a symbol to start tracking.</p>
+                  <p className="empty-message">
+                    {holdings.length
+                      ? 'No holdings match your search.'
+                      : 'No holdings yet. Add a symbol to start tracking.'}
+                  </p>
                 )}
               </div>
             </section>

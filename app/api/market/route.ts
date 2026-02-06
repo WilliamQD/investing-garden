@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { normalizeTicker } from '@/lib/validation';
+
 type QuotePayload = {
   price: number;
   currency?: string;
@@ -20,15 +22,17 @@ const quoteCache = new Map<string, { data: QuotePayload; timestamp: number }>();
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const ticker = searchParams.get('ticker')?.trim().toUpperCase();
-  if (!ticker) {
-    return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
+  const normalizedTicker = normalizeTicker(searchParams.get('ticker'));
+  if (!normalizedTicker) {
+    return NextResponse.json(
+      { error: 'Ticker must be 1-10 characters (letters, numbers, . or -)' },
+      { status: 400 }
+    );
   }
-
-  const cached = quoteCache.get(ticker);
+  const cached = quoteCache.get(normalizedTicker);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return NextResponse.json(
-      { ticker, ...cached.data, cached: true },
+      { ticker: normalizedTicker, ...cached.data, cached: true },
       { headers: { 'Cache-Control': CACHE_HEADER } }
     );
   }
@@ -43,7 +47,7 @@ export async function GET(request: Request) {
 
   try {
     const response = await fetch(
-      `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(ticker)}&apikey=${apiKey}`,
+      `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(normalizedTicker)}&apikey=${apiKey}`,
       { cache: 'no-store' }
     );
     const data = await response.json();
@@ -65,16 +69,16 @@ export async function GET(request: Request) {
         ? new Date(Number(data.timestamp) * 1000).toISOString()
         : new Date().toISOString(),
     };
-    quoteCache.set(ticker, { data: payload, timestamp: Date.now() });
+    quoteCache.set(normalizedTicker, { data: payload, timestamp: Date.now() });
     return NextResponse.json(
-      { ticker, ...payload },
+      { ticker: normalizedTicker, ...payload },
       { headers: { 'Cache-Control': CACHE_HEADER } }
     );
   } catch (error) {
     console.error('Error fetching market data:', error);
     if (cached) {
       return NextResponse.json(
-        { ticker, ...cached.data, stale: true },
+        { ticker: normalizedTicker, ...cached.data, stale: true },
         { headers: { 'Cache-Control': CACHE_HEADER } }
       );
     }

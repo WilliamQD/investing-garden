@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 
+import { normalizeTicker } from '@/lib/validation';
+
 type Candle = {
   datetime: string;
   close: string;
 };
 
+const ALLOWED_INTERVALS = new Set(['1day', '1week', '1month']);
 const DEFAULT_CACHE_TTL_SECONDS = 240;
 const MIN_CACHE_TTL_SECONDS = 60;
 const MAX_CACHE_TTL_SECONDS = 300;
@@ -18,17 +21,25 @@ const historyCache = new Map<string, { data: { candles: Candle[]; updatedAt: str
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const ticker = searchParams.get('ticker')?.trim().toUpperCase();
+  const normalizedTicker = normalizeTicker(searchParams.get('ticker'));
   const interval = searchParams.get('interval')?.trim() || '1day';
-  if (!ticker) {
-    return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
+  if (!normalizedTicker) {
+    return NextResponse.json(
+      { error: 'Ticker must be 1-10 characters (letters, numbers, . or -)' },
+      { status: 400 }
+    );
   }
-
-  const cacheKey = `${ticker}-${interval}`;
+  if (!ALLOWED_INTERVALS.has(interval)) {
+    return NextResponse.json(
+      { error: 'Interval must be one of: 1day, 1week, 1month' },
+      { status: 400 }
+    );
+  }
+  const cacheKey = `${normalizedTicker}-${interval}`;
   const cached = historyCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return NextResponse.json(
-      { ticker, ...cached.data, cached: true },
+      { ticker: normalizedTicker, ...cached.data, cached: true },
       { headers: { 'Cache-Control': CACHE_HEADER } }
     );
   }
@@ -44,7 +55,7 @@ export async function GET(request: Request) {
   try {
     const response = await fetch(
       `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(
-        ticker
+        normalizedTicker
       )}&interval=${encodeURIComponent(interval)}&outputsize=30&apikey=${apiKey}`,
       { cache: 'no-store' }
     );
@@ -67,14 +78,14 @@ export async function GET(request: Request) {
     };
     historyCache.set(cacheKey, { data: payload, timestamp: Date.now() });
     return NextResponse.json(
-      { ticker, ...payload },
+      { ticker: normalizedTicker, ...payload },
       { headers: { 'Cache-Control': CACHE_HEADER } }
     );
   } catch (error) {
     console.error('Error fetching market history:', error);
     if (cached) {
       return NextResponse.json(
-        { ticker, ...cached.data, stale: true },
+        { ticker: normalizedTicker, ...cached.data, stale: true },
         { headers: { 'Cache-Control': CACHE_HEADER } }
       );
     }
