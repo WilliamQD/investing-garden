@@ -23,7 +23,7 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
   const [ticker, setTicker] = useState('');
   const [goal, setGoal] = useState('');
   const [nextStep, setNextStep] = useState('');
-  const [sourceType, setSourceType] = useState('Article');
+  const [sourceType, setSourceType] = useState('Website');
   const [tags, setTags] = useState('');
   const titleLabelMap = {
     journal: 'Trade / setup',
@@ -52,7 +52,7 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
       setTicker(entry?.ticker || '');
       setGoal(entry?.goal || '');
       setNextStep(entry?.nextStep || '');
-      setSourceType(entry?.sourceType || 'Article');
+      setSourceType(entry?.sourceType || 'Website');
       setTags(entry?.tags?.join(', ') || '');
     }, 0);
   }, [
@@ -231,16 +231,19 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="entry-source">Source type</label>
+                <label htmlFor="entry-source">Resource type</label>
                 <select
                   id="entry-source"
                   value={sourceType}
                   onChange={(e) => setSourceType(e.target.value)}
                 >
+                  <option value="Website">Website</option>
                   <option value="Article">Article</option>
+                  <option value="Research paper">Research paper</option>
+                  <option value="Online course">Online course</option>
                   <option value="Video">Video</option>
-                  <option value="Book">Book</option>
                   <option value="Podcast">Podcast</option>
+                  <option value="Book">Book</option>
                   <option value="Tool">Tool</option>
                 </select>
               </div>

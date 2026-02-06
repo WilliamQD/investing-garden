@@ -1,28 +1,26 @@
-# William Zhang's Investing Lab
+# Investing Garden
 
-A public lab notebook for tracking investing journey – documenting trades, learning progress, and curated resources.
+Investing Garden is a clean, industrial workspace for tracking portfolio progress, research notes, and market context in one place.
 
 ## Features
 
-- **Journal & Trades**: Log real and simulated trades with reasoning, tags, and dates
-- **Learning Plan**: Track educational progress and study notes
-- **Resources**: Curate useful links, courses, and tools with descriptions
-- **Full CRUD**: Create, read, update, and delete entries in all sections
-- **Postgres Storage**: Persistent cloud database via Vercel Postgres
+- **Dashboard view**: Portfolio snapshot chart + live holdings tracker
+- **Holdings watchlist**: Add symbols and see live prices with recent trendlines
+- **Trade journal**: Log trades with rationale, emotion, and outcomes
+- **Knowledge hub**: Merge learning notes and external resources into one library
 - **Admin-only edits**: Public read access with token-protected write actions
-- **Backups**: Export and restore entries as JSON or ZIP archives
-- **Markdown Notes**: Write in Markdown with live preview and rich rendering
-- **Analytics**: Stats dashboard with win/loss, heatmap, and tag insights
-- **Market Data**: Live prices pulled when a journal ticker is provided
-- **Modern UI**: Beautiful, responsive design with modal dialogs and smooth interactions
+- **Persistent storage**: Postgres (Neon/Vercel Postgres) for all entries and portfolio snapshots
+- **Backups + analytics**: Export/restore JSON or ZIP archives and view activity stats
+- **Markdown notes**: Markdown support with live preview
+- **Market data**: Twelve Data quotes + candles with caching to stay within free limits
 
 ## Tech Stack
 
-- **Framework**: Next.js 16 with App Router
+- **Framework**: Next.js 16 (App Router)
 - **Language**: TypeScript
-- **Styling**: Custom CSS (migrated from original design)
+- **Styling**: Custom CSS
 - **Backend**: Next.js API Routes
-- **Storage**: Vercel Postgres
+- **Storage**: Vercel Postgres / Neon
 - **Auth**: Admin token header for write access
 - **Runtime**: Node.js
 
@@ -49,8 +47,15 @@ npm install
 ```bash
 POSTGRES_URL=your_postgres_connection_string
 ADMIN_TOKEN=your_admin_token
+TWELVE_DATA_API_KEY=your_twelve_data_key
 ```
 Generate a long random token (for example, `openssl rand -hex 16` for a 32-character token) to keep write access secure. Tokens must be at least 16 characters long.
+
+Optional tuning:
+```bash
+MARKET_CACHE_TTL_SECONDS=180
+NEXT_PUBLIC_MARKET_CACHE_TTL_MS=180000
+```
 
 4. Run the development server:
 ```bash
@@ -68,55 +73,58 @@ npm start
 
 ## Usage
 
-### Adding Entries
+### Admin access
 
-1. Click the navigation buttons (Journal, Learning, Resources) to switch sections
-2. Click the "+ Add [Entry Type]" button in any section
-3. Fill in the section-specific fields (trade outcome + emotion, learning goals + next steps, or resource URL + type)
-4. Add a ticker to journal entries to pull live market prices
-5. Use Markdown in notes for formatting (preview is shown live)
-6. Add tags for journal/resource entries if desired
-7. Click "Save" to create the entry
+Click the Visitor/Admin pill in the header, paste the `ADMIN_TOKEN`, and activate admin mode. Admin mode unlocks portfolio snapshot entry, holdings edits, and knowledge/journal CRUD.
 
-### Editing Entries
+### Dashboard workflows
 
-1. Hover over any entry card to reveal the edit (✏️) and delete (🗑️) buttons
-2. Click the edit button to modify an entry
-3. Make your changes and click "Save"
+- Add daily portfolio snapshots to build the account trajectory chart.
+- Add holdings symbols to monitor live prices and recent price trends.
 
-### Deleting Entries
+### Knowledge hub
 
-1. Hover over any entry card
-2. Click the delete button (🗑️)
-3. Confirm the deletion
+- Capture research notes and learning goals.
+- Save external resources with type taxonomy (website, course, research paper, etc.).
 
 ## Project Structure
 
 ```
 investing-garden/
 ├── app/
-  │   ├── api/              # API routes for CRUD, backup, stats
+│   ├── api/
 │   │   ├── backup/
 │   │   ├── journal/
 │   │   ├── learning/
 │   │   ├── market/
+│   │   │   └── history/
+│   │   ├── portfolio/
+│   │   │   ├── holdings/
+│   │   │   └── snapshots/
 │   │   ├── resources/
+│   │   ├── settings/
 │   │   └── stats/
-│   ├── globals.css       # Global styles
-│   ├── layout.tsx        # Root layout
-│   ├── page.tsx          # Main page component
-  │   └── providers.tsx     # Admin token provider
-├── components/           # React components
-│   ├── AuthControls.tsx  # Login/logout controls
-│   ├── EntryCard.tsx     # Display card for entries
-│   ├── EntryModal.tsx    # Modal for add/edit
-│   ├── MarketPrice.tsx   # Market price display
-│   ├── Section.tsx       # Section container with CRUD logic
-│   └── StatsPanel.tsx    # Analytics and backup panel
+│   ├── globals.css
+│   ├── layout.tsx
+│   ├── page.tsx
+│   └── providers.tsx
+├── components/
+│   ├── AuthControls.tsx
+│   ├── EntryCard.tsx
+│   ├── EntryModal.tsx
+│   ├── HoldingCard.tsx
+│   ├── KnowledgeModal.tsx
+│   ├── KnowledgeSection.tsx
+│   ├── MarketPrice.tsx
+│   ├── MarketSparkline.tsx
+│   ├── Section.tsx
+│   └── StatsPanel.tsx
 ├── lib/
-  │   ├── auth.ts           # Admin token validation
-│   └── storage.ts        # Postgres persistence layer
-└── public/               # Static assets
+│   ├── admin-client.tsx
+│   ├── auth.ts
+│   ├── portfolio.ts
+│   └── storage.ts
+└── public/
 ```
 
 ## API Endpoints
@@ -130,37 +138,29 @@ All endpoints support JSON payloads:
 - `PUT /api/journal/[id]` - Update an entry
 - `DELETE /api/journal/[id]` - Delete an entry
 
-### Learning
-- `GET /api/learning` - List all learning notes
-- `POST /api/learning` - Create a new note
-- `GET /api/learning/[id]` - Get a specific note
-- `PUT /api/learning/[id]` - Update a note
-- `DELETE /api/learning/[id]` - Delete a note
+### Knowledge (learning + resources)
+- `GET /api/learning` - List learning notes
+- `POST /api/learning` - Create a learning note
+- `GET /api/resources` - List resources
+- `POST /api/resources` - Create a resource
 
-### Resources
-- `GET /api/resources` - List all resources
-- `POST /api/resources` - Create a new resource
-- `GET /api/resources/[id]` - Get a specific resource
-- `PUT /api/resources/[id]` - Update a resource
-- `DELETE /api/resources/[id]` - Delete a resource
+### Portfolio
+- `GET /api/portfolio/snapshots` - List portfolio snapshots
+- `POST /api/portfolio/snapshots` - Create/update a daily snapshot
+- `GET /api/portfolio/holdings` - List holdings
+- `POST /api/portfolio/holdings` - Add a holding
+- `DELETE /api/portfolio/holdings/[id]` - Remove a holding
 
-### Backup & Analytics
+### Settings + Analytics
+- `GET /api/settings` - Site overview settings
+- `PUT /api/settings` - Update overview settings
+- `GET /api/stats` - Analytics payload for the Stats dashboard
 - `GET /api/backup?format=json|zip` - Export all data
 - `POST /api/backup` - Restore from a backup file
-- `GET /api/stats` - Analytics payload for the Stats dashboard
 
 ### Market Data
 - `GET /api/market?ticker=NVDA` - Live price lookup
-
-## Admin Access
-
-To enable edits, enter the `ADMIN_TOKEN` value in the header token field. The token is kept in memory for the current page load, so re-enter it after refresh. All reads remain public.
-
-## Data Storage
-
-Entries are stored in Postgres tables. To migrate older `data/*.json` files, zip the
-three JSON files (`journal.json`, `learning.json`, `resources.json`) and restore them
-from the Stats → Backup & restore panel.
+- `GET /api/market/history?ticker=NVDA` - Recent price candles
 
 ## License
 

@@ -11,9 +11,10 @@ interface MarketData {
   currency?: string;
   changePercent?: number;
   updatedAt?: string;
+  stale?: boolean;
 }
 
-const DEFAULT_CACHE_TTL = 60_000;
+const DEFAULT_CACHE_TTL = 180_000;
 const cacheEnvValue = Number(process.env.NEXT_PUBLIC_MARKET_CACHE_TTL_MS);
 const CACHE_TTL = Number.isFinite(cacheEnvValue) ? cacheEnvValue : DEFAULT_CACHE_TTL;
 const marketCache = new Map<string, { data: MarketData; timestamp: number }>();
@@ -49,6 +50,7 @@ export default function MarketPrice({ ticker }: MarketPriceProps) {
             currency: result.currency,
             changePercent: result.changePercent,
             updatedAt: result.updatedAt,
+            stale: result.stale,
           };
           marketCache.set(normalizedTicker, { data: nextData, timestamp: Date.now() });
           setData(nextData);
@@ -80,12 +82,13 @@ export default function MarketPrice({ ticker }: MarketPriceProps) {
       : null;
 
   return (
-    <div className="market-price">
+    <div className={`market-price ${data.stale ? 'market-price-stale' : ''}`}>
       <span className="market-price-label">Price</span>
       <span className="market-price-value">
         {data.price.toFixed(2)} {data.currency ?? 'USD'}
       </span>
       {change && <span className="market-price-change">{change}</span>}
+      {data.stale && <span className="market-price-note">Stale</span>}
     </div>
   );
 }

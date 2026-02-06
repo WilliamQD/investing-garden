@@ -22,7 +22,7 @@ export default function EntryCard({
   canEdit,
 }: EntryCardProps) {
   const detailLabel =
-    type === 'journal' ? 'Outcome' : type === 'learning' ? 'Goal' : 'Type';
+    type === 'journal' ? 'Outcome' : type === 'learning' ? 'Goal' : 'Resource type';
   const detailValue =
     type === 'journal' ? entry.outcome : type === 'learning' ? entry.goal : entry.sourceType;
 
@@ -31,7 +31,7 @@ export default function EntryCard({
         <div className="card-header-actions">
           <div className="card-title-wrap">
             <span className="card-chip">
-              {type === 'journal' ? 'Trade note' : type === 'learning' ? 'Learning task' : 'Resource'}
+              {type === 'journal' ? 'Trade note' : type === 'learning' ? 'Research note' : 'Resource'}
             </span>
             <h3>{entry.title}</h3>
           </div>

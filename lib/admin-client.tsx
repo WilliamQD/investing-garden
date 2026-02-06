@@ -12,10 +12,19 @@ type AdminContextValue = {
 const AdminContext = createContext<AdminContextValue | null>(null);
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
-  const [token, setTokenState] = useState('');
+  const [token, setTokenState] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    return window.sessionStorage.getItem('adminToken') ?? '';
+  });
 
   const setToken = useCallback((value: string) => {
     setTokenState(value);
+    if (typeof window === 'undefined') return;
+    if (value) {
+      window.sessionStorage.setItem('adminToken', value);
+    } else {
+      window.sessionStorage.removeItem('adminToken');
+    }
   }, []);
 
   const authHeaders = useMemo<Record<string, string>>(() => {
