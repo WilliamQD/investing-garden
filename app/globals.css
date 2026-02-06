@@ -2,6 +2,7 @@
   --bg: #020617;
   --bg-alt: #02051a;
   --card-bg: rgba(15, 23, 42, 0.92);
+  --panel-muted: rgba(15, 23, 42, 0.7);
   --accent: #22d3ee;
   --accent-soft: rgba(34, 211, 238, 0.4);
   --accent-warm: #f59e0b;
@@ -234,7 +235,7 @@ body {
   padding: 0.6rem 0.75rem;
   border-radius: 12px;
   border: 1px solid var(--border-subtle);
-  background: rgba(15, 23, 42, 0.7);
+  background: var(--panel-muted);
 }
 
 .auth-status-title {

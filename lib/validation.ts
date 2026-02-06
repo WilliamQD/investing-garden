@@ -179,13 +179,18 @@ export const normalizeSettingsInput = (
   if (!headline || !summary) {
     return { error: 'Headline and summary are required.' };
   }
+  if (payload.focusAreas != null && !Array.isArray(payload.focusAreas)) {
+    return { error: 'Focus areas must be an array.' };
+  }
   const focusAreasInput = Array.isArray(payload.focusAreas) ? payload.focusAreas : [];
   const focusAreas: string[] = [];
   for (const area of focusAreasInput) {
     if (focusAreas.length >= MAX_FOCUS_AREAS) {
       return { error: `Cannot exceed ${MAX_FOCUS_AREAS} focus areas.` };
     }
-    if (typeof area !== 'string') continue;
+    if (typeof area !== 'string') {
+      return { error: 'Focus areas must be strings.' };
+    }
     const trimmed = area.trim();
     if (!trimmed) continue;
     if (trimmed.length > MAX_FOCUS_AREA_LENGTH) {

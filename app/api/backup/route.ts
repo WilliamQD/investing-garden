@@ -21,6 +21,7 @@ const MAX_BACKUP_FORM_BYTES = MAX_BACKUP_FILE_BYTES + 1024 * 1024;
 const INVALID_ENTRIES_MESSAGE = (count: number) =>
   `Backup contains ${count} invalid ${count === 1 ? 'entry' : 'entries'}.`;
 const DUPLICATE_IDS_MESSAGE = 'Backup contains duplicate entry IDs.';
+const MISSING_IDS_MESSAGE = 'Backup entries must include valid id values.';
 
 const parseJson = (text: string) => {
   try {
@@ -58,6 +59,9 @@ const hasDuplicateIds = (entries: Entry[]) => {
   return false;
 };
 
+const hasMissingIds = (entries: Entry[]) =>
+  entries.some(entry => !entry.id || !entry.id.trim());
+
 const normalizeBackupPayload = (payload: Record<string, unknown>) => {
   if (!hasRequiredKeys(payload)) {
     return { error: MISSING_KEYS_MESSAGE };
@@ -72,6 +76,13 @@ const normalizeBackupPayload = (payload: Record<string, unknown>) => {
     journalResult.invalidCount + learningResult.invalidCount + resourcesResult.invalidCount;
   if (invalidCount > 0) {
     return { error: INVALID_ENTRIES_MESSAGE(invalidCount) };
+  }
+  if (
+    hasMissingIds(journalResult.entries) ||
+    hasMissingIds(learningResult.entries) ||
+    hasMissingIds(resourcesResult.entries)
+  ) {
+    return { error: MISSING_IDS_MESSAGE };
   }
   if (
     hasDuplicateIds(journalResult.entries) ||
