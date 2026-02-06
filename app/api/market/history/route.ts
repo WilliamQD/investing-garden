@@ -35,13 +35,11 @@ export async function GET(request: Request) {
       { status: 400 }
     );
   }
-  const ticker = normalizedTicker;
-
-  const cacheKey = `${ticker}-${interval}`;
+  const cacheKey = `${normalizedTicker}-${interval}`;
   const cached = historyCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return NextResponse.json(
-      { ticker, ...cached.data, cached: true },
+      { ticker: normalizedTicker, ...cached.data, cached: true },
       { headers: { 'Cache-Control': CACHE_HEADER } }
     );
   }
@@ -57,7 +55,7 @@ export async function GET(request: Request) {
   try {
     const response = await fetch(
       `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(
-        ticker
+        normalizedTicker
       )}&interval=${encodeURIComponent(interval)}&outputsize=30&apikey=${apiKey}`,
       { cache: 'no-store' }
     );
@@ -80,14 +78,14 @@ export async function GET(request: Request) {
     };
     historyCache.set(cacheKey, { data: payload, timestamp: Date.now() });
     return NextResponse.json(
-      { ticker, ...payload },
+      { ticker: normalizedTicker, ...payload },
       { headers: { 'Cache-Control': CACHE_HEADER } }
     );
   } catch (error) {
     console.error('Error fetching market history:', error);
     if (cached) {
       return NextResponse.json(
-        { ticker, ...cached.data, stale: true },
+        { ticker: normalizedTicker, ...cached.data, stale: true },
         { headers: { 'Cache-Control': CACHE_HEADER } }
       );
     }

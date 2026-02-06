@@ -52,7 +52,7 @@ const hasDuplicateIds = (entries: Entry[]) => {
   const seen = new Set<string>();
   for (const entry of entries) {
     const id = entry.id?.trim();
-    if (!id) return true;
+    if (!id) continue;
     if (seen.has(id)) return true;
     seen.add(id);
   }
