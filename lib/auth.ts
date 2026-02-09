@@ -105,9 +105,10 @@ const parseSessionCookie = (value: string) => {
 };
 
 const validateIpAddress = (ip: string): string | null => {
-  // Basic IPv4 validation (also handle IPv6 later if needed)
+  // Basic IPv4 validation
+  // Note: IPv6 validation is intentionally simplified and may not catch all edge cases
   const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
-  const ipv6Regex = /^([0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}$/i;
+  const ipv6Regex = /^[0-9a-f:]+$/i;
   
   if (!ip || ip === 'unknown') return null;
   
@@ -115,9 +116,11 @@ const validateIpAddress = (ip: string): string | null => {
   if (ip.length > 45) return null; // Max IPv6 length is 45
   
   if (ipv4Regex.test(ip)) {
-    // Validate IPv4 octets are 0-255
+    // Validate IPv4 octets are 0-255 and reject leading zeros
     const octets = ip.split('.');
     if (octets.every(octet => {
+      // Reject leading zeros (except '0' itself)
+      if (octet.length > 1 && octet[0] === '0') return false;
       const num = parseInt(octet, 10);
       return num >= 0 && num <= 255;
     })) {
@@ -125,7 +128,8 @@ const validateIpAddress = (ip: string): string | null => {
     }
   }
   
-  if (ipv6Regex.test(ip)) {
+  // Basic IPv6 check: contains colons and only hex characters
+  if (ip.includes(':') && ipv6Regex.test(ip) && ip.split(':').length >= 3) {
     return ip;
   }
   
