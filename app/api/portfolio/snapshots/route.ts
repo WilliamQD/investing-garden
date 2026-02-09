@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 
 import { getAuthorizedSession } from '@/lib/auth';
+import { logAuditEvent } from '@/lib/audit';
 import { getPortfolioSnapshots, upsertPortfolioSnapshot } from '@/lib/portfolio';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { normalizeIsoDate } from '@/lib/validation';
 
 export async function GET() {
@@ -16,9 +18,27 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const rateLimit = await checkRateLimit('portfolio:snapshots:post', {
+      limit: 30,
+      windowMs: 60_000,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many snapshot updates. Try again shortly.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimit.retryAfter ?? 60),
+          },
+        }
+      );
+    }
     const session = await getAuthorizedSession();
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!session.canWrite) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     const body = await request.json();
     if (!body || Array.isArray(body) || typeof body !== 'object') {
@@ -34,6 +54,10 @@ export async function POST(request: Request) {
       );
     }
     const snapshot = await upsertPortfolioSnapshot(normalizedDate, numericValue);
+    await logAuditEvent('portfolio_snapshot_upserted', session, {
+      date: normalizedDate,
+      value: numericValue,
+    });
     return NextResponse.json(snapshot, { status: 201 });
   } catch (error) {
     console.error('Error saving portfolio snapshot:', error);

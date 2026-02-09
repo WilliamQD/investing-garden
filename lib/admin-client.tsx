@@ -3,7 +3,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 type AdminContextValue = {
-  hasAdminToken: boolean;
+  isAuthenticated: boolean;
+  canWrite: boolean;
+  role: string;
   username: string;
   login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -13,7 +15,9 @@ type AdminContextValue = {
 const AdminContext = createContext<AdminContextValue | null>(null);
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
-  const [hasAdminToken, setHasAdminToken] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [canWrite, setCanWrite] = useState(false);
+  const [role, setRole] = useState('');
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -21,15 +25,21 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await fetch('/api/auth/session', { credentials: 'include' });
       if (!response.ok) {
-        setHasAdminToken(false);
+        setIsAuthenticated(false);
+        setCanWrite(false);
+        setRole('');
         setUsername('');
         return;
       }
       const data = await response.json();
-      setHasAdminToken(Boolean(data.isAdmin));
+      setIsAuthenticated(Boolean(data.isAuthenticated));
+      setCanWrite(Boolean(data.canWrite));
+      setRole(typeof data.role === 'string' ? data.role : '');
       setUsername(typeof data.username === 'string' ? data.username : '');
     } catch {
-      setHasAdminToken(false);
+      setIsAuthenticated(false);
+      setCanWrite(false);
+      setRole('');
       setUsername('');
     } finally {
       setLoading(false);
@@ -55,7 +65,9 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           error: typeof data.error === 'string' ? data.error : 'Unable to authenticate.',
         };
       }
-      setHasAdminToken(true);
+      setIsAuthenticated(true);
+      setCanWrite(Boolean(data.canWrite));
+      setRole(typeof data.role === 'string' ? data.role : '');
       setUsername(typeof data.username === 'string' ? data.username : nextUsername);
       return { ok: true };
     } catch {
@@ -70,20 +82,24 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         credentials: 'include',
       });
     } finally {
-      setHasAdminToken(false);
+      setIsAuthenticated(false);
+      setCanWrite(false);
+      setRole('');
       setUsername('');
     }
   }, []);
 
   const contextValue = useMemo(
     () => ({
-      hasAdminToken,
+      isAuthenticated,
+      canWrite,
+      role,
       username,
       login,
       logout,
       loading,
     }),
-    [hasAdminToken, loading, login, logout, username]
+    [canWrite, isAuthenticated, loading, login, logout, role, username]
   );
 
   return <AdminContext.Provider value={contextValue}>{children}</AdminContext.Provider>;

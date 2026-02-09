@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
 import { getAuthorizedSession } from '@/lib/auth';
+import { logAuditEvent } from '@/lib/audit';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { storage } from '@/lib/storage';
 import { normalizeEntryInput } from '@/lib/validation';
 
@@ -27,9 +29,24 @@ export async function PUT(
 ) {
   const { id } = await params;
   try {
+    const rateLimit = await checkRateLimit('journal:update', { limit: 40, windowMs: 60_000 });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many journal updates. Try again shortly.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimit.retryAfter ?? 60),
+          },
+        }
+      );
+    }
     const session = await getAuthorizedSession();
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!session.canWrite) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     const body = await request.json();
     if (!body || Array.isArray(body) || typeof body !== 'object') {
@@ -44,6 +61,7 @@ export async function PUT(
     if (!entry) {
       return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
     }
+    await logAuditEvent('journal_entry_updated', session, { entryId: entry.id });
     return NextResponse.json(entry);
   } catch (error) {
     console.error('Error updating journal entry:', error);
@@ -57,14 +75,30 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
+    const rateLimit = await checkRateLimit('journal:delete', { limit: 30, windowMs: 60_000 });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many journal updates. Try again shortly.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimit.retryAfter ?? 60),
+          },
+        }
+      );
+    }
     const session = await getAuthorizedSession();
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!session.canWrite) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     const success = await storage.delete('journal', id);
     if (!success) {
       return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
     }
+    await logAuditEvent('journal_entry_deleted', session, { entryId: id });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting journal entry:', error);

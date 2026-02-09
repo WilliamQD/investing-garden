@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useAdmin } from '@/lib/admin-client';
 
 export default function AuthControls() {
-  const { hasAdminToken, username, login, logout, loading } = useAdmin();
+  const { canWrite, isAuthenticated, role, username, login, logout, loading } = useAdmin();
   const [draftUsername, setDraftUsername] = useState('');
   const [draftPassword, setDraftPassword] = useState('');
   const [status, setStatus] = useState('');
@@ -36,13 +36,13 @@ export default function AuthControls() {
   return (
     <div className="auth-controls">
       <button
-        className={`auth-toggle ${hasAdminToken ? 'auth-toggle-active' : ''}`}
+        className={`auth-toggle ${isAuthenticated ? 'auth-toggle-active' : ''}`}
         onClick={() => setIsOpen(prev => !prev)}
         type="button"
         disabled={loading}
       >
-        <span className={`auth-dot ${hasAdminToken ? 'auth-dot-active' : ''}`} />
-        {hasAdminToken ? 'Admin' : 'Visitor'}
+        <span className={`auth-dot ${isAuthenticated ? 'auth-dot-active' : ''}`} />
+        {canWrite ? 'Admin' : isAuthenticated ? 'Viewer' : 'Visitor'}
       </button>
       {isOpen && (
         <div className="auth-popover">
@@ -64,16 +64,18 @@ export default function AuthControls() {
           </div>
           <div className="auth-status">
             <p className="auth-status-title">
-              {hasAdminToken ? 'Admin mode active' : 'Visitor mode'}
+              {canWrite ? 'Admin mode active' : isAuthenticated ? 'Signed in (read-only)' : 'Visitor mode'}
             </p>
             <p className="auth-status-sub">
-              {hasAdminToken
+              {canWrite
                 ? `Logged in as ${username || 'admin'} · edits enabled.`
+                : isAuthenticated
+                  ? `Signed in as ${username || 'user'} · role ${role || 'viewer'}.`
                 : 'Read-only mode. Sign in to edit.'}
             </p>
           </div>
 
-          {!hasAdminToken && (
+          {!isAuthenticated && (
             <>
               <label className="auth-label">
                 <span>Username</span>
@@ -103,10 +105,21 @@ export default function AuthControls() {
           {status && <p className="auth-status-sub">{status}</p>}
 
           <div className="auth-actions">
-            {!hasAdminToken ? (
-              <button className="auth-button" onClick={handleLogin} type="button" disabled={submitting}>
-                {submitting ? 'Signing in…' : 'Sign in'}
-              </button>
+            {!isAuthenticated ? (
+              <>
+                <button className="auth-button" onClick={handleLogin} type="button" disabled={submitting}>
+                  {submitting ? 'Signing in…' : 'Sign in'}
+                </button>
+                <button
+                  className="auth-button auth-button-ghost"
+                  onClick={() => {
+                    window.location.href = '/api/oidc/signin';
+                  }}
+                  type="button"
+                >
+                  Use SSO
+                </button>
+              </>
             ) : (
               <button className="auth-button auth-button-ghost" onClick={handleLogout} type="button">
                 Log out

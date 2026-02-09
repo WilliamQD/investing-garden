@@ -3,6 +3,8 @@ import 'server-only';
 import { sql } from '@vercel/postgres';
 import { randomUUID } from 'crypto';
 
+import { ensureMigrations } from '@/lib/migrations';
+
 export interface PortfolioSnapshot {
   date: string;
   value: number;
@@ -29,8 +31,6 @@ const DEFAULT_SETTINGS: SiteSettings = {
   focusAreas: [],
 };
 
-let initialized: Promise<void> | null = null;
-
 const normalizeSettings = (data: Partial<SiteSettings> | null): SiteSettings => {
   const headline =
     typeof data?.headline === 'string' && data.headline.trim()
@@ -51,37 +51,7 @@ const normalizeSettings = (data: Partial<SiteSettings> | null): SiteSettings => 
 };
 
 async function ensureTables() {
-  if (!initialized) {
-    initialized = (async () => {
-      await sql`
-        CREATE TABLE IF NOT EXISTS portfolio_snapshots (
-          snapshot_date date PRIMARY KEY,
-          value numeric NOT NULL,
-          updated_at timestamptz NOT NULL
-        )
-      `;
-      await sql`
-        CREATE TABLE IF NOT EXISTS portfolio_holdings (
-          id text PRIMARY KEY,
-          ticker text NOT NULL,
-          label text,
-          created_at timestamptz NOT NULL
-        )
-      `;
-      await sql`
-        CREATE UNIQUE INDEX IF NOT EXISTS portfolio_holdings_ticker_idx
-        ON portfolio_holdings (ticker)
-      `;
-      await sql`
-        CREATE TABLE IF NOT EXISTS site_settings (
-          id text PRIMARY KEY,
-          data jsonb NOT NULL,
-          updated_at timestamptz NOT NULL
-        )
-      `;
-    })();
-  }
-  await initialized;
+  await ensureMigrations();
 }
 
 const mapSnapshot = (row: Record<string, unknown>): PortfolioSnapshot => ({

@@ -36,12 +36,13 @@ export async function POST(request: Request) {
     ? (body as { password: string }).password
     : '';
 
-  if (!verifyCredentials(username, password)) {
+  const credential = verifyCredentials(username, password);
+  if (!credential) {
     await registerFailedLogin();
     return NextResponse.json({ error: 'Invalid credentials.' }, { status: 401 });
   }
 
-  const cookieValue = createSessionCookieValue(username);
+  const cookieValue = createSessionCookieValue(credential.username, credential.role);
   if (!cookieValue) {
     return NextResponse.json(
       { error: 'Server auth session is not configured.' },
@@ -51,7 +52,13 @@ export async function POST(request: Request) {
 
   await clearLoginAttempts();
 
-  const response = NextResponse.json({ success: true, username });
+  const response = NextResponse.json({
+    success: true,
+    username: credential.username,
+    role: credential.role,
+    canWrite: credential.role !== 'viewer',
+    isAuthenticated: true,
+  });
   response.cookies.set(getSessionCookieName(), cookieValue, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

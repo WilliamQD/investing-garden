@@ -8,7 +8,7 @@ Investing Garden is a clean, industrial workspace for tracking portfolio progres
 - **Holdings watchlist**: Add symbols, bulk import from CSV, and see live prices with recent trendlines
 - **Trade journal**: Log trades with rationale, emotion, and outcomes
 - **Knowledge hub**: Merge learning notes and external resources into one library
-- **Admin-only edits**: Public read access with token-protected write actions
+- **Admin-only edits**: Public read access with role-aware, session-based write actions
 - **Persistent storage**: Postgres (Neon/Vercel Postgres) for all entries and portfolio snapshots
 - **Backups + analytics**: Export/restore JSON or ZIP archives and view activity stats
 - **Markdown notes**: Markdown support with live preview
@@ -21,7 +21,7 @@ Investing Garden is a clean, industrial workspace for tracking portfolio progres
 - **Styling**: Custom CSS
 - **Backend**: Next.js API Routes
 - **Storage**: Vercel Postgres / Neon
-- **Auth**: Credential-based admin sign-in with signed HttpOnly session cookies
+- **Auth**: Auth.js OIDC (optional) with credential-based fallback and signed HttpOnly sessions
 - **Runtime**: Node.js
 
 ## Getting Started
@@ -46,11 +46,11 @@ npm install
 3. Create a `.env.local` file with the required secrets:
 ```bash
 POSTGRES_URL=your_postgres_connection_string
-ADMIN_CREDENTIALS=[{"username":"owner","password":"a-very-long-password"}]
+ADMIN_CREDENTIALS=[{"username":"owner","password":"a-very-long-password","role":"admin"}]
 ADMIN_SESSION_SECRET=long_random_secret_at_least_16_chars
 TWELVE_DATA_API_KEY=your_twelve_data_key
 ```
-Use `ADMIN_CREDENTIALS` to define approved editor accounts. `ADMIN_SESSION_SECRET` signs secure admin sessions and must be at least 16 characters.
+Use `ADMIN_CREDENTIALS` to define approved editor accounts (roles: `admin`, `editor`, `viewer`). `ADMIN_SESSION_SECRET` signs secure admin sessions and must be at least 16 characters.
 
 If you still prefer a single-token setup, set `ADMIN_TOKEN` (legacy fallback) and use username `admin`.
 
@@ -58,6 +58,18 @@ Optional tuning:
 ```bash
 MARKET_CACHE_TTL_SECONDS=180
 NEXT_PUBLIC_MARKET_CACHE_TTL_MS=180000
+```
+
+Optional Auth.js (OIDC) configuration:
+```bash
+OIDC_ISSUER=https://example-issuer.com
+OIDC_CLIENT_ID=your_client_id
+OIDC_CLIENT_SECRET=your_client_secret
+NEXTAUTH_SECRET=long_random_secret_at_least_16_chars
+NEXTAUTH_URL=https://your-domain.com/api/oidc
+OIDC_ROLE_CLAIM=roles
+OIDC_ADMIN_ROLES=admin
+OIDC_EDITOR_ROLES=editor
 ```
 
 4. Run the development server:
@@ -78,7 +90,7 @@ npm start
 
 ### Admin access
 
-Click the Visitor/Admin pill in the header, enter approved credentials, and sign in. Admin mode unlocks portfolio snapshot entry, holdings edits, and knowledge/journal CRUD.
+Click the Visitor/Admin pill in the header, enter approved credentials or use SSO, and sign in. Admin mode unlocks portfolio snapshot entry, holdings edits, and knowledge/journal CRUD.
 
 ### Dashboard workflows
 

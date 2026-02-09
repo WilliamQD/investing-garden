@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 
 import { getAuthorizedSession } from '@/lib/auth';
+import { logAuditEvent } from '@/lib/audit';
 import { addHolding, addHoldings, getHoldings } from '@/lib/portfolio';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { normalizeLabel, normalizeTicker } from '@/lib/validation';
 
 const MAX_BULK_HOLDINGS = 50;
@@ -18,9 +20,27 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const rateLimit = await checkRateLimit('portfolio:holdings:post', {
+      limit: 40,
+      windowMs: 60_000,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many holding updates. Try again shortly.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimit.retryAfter ?? 60),
+          },
+        }
+      );
+    }
     const session = await getAuthorizedSession();
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!session.canWrite) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     const body = await request.json();
     if (!body || Array.isArray(body) || typeof body !== 'object') {
@@ -60,6 +80,10 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Holdings import contains invalid rows.', details: errors }, { status: 400 });
       }
       const holdings = await addHoldings(normalized);
+      await logAuditEvent('portfolio_holdings_bulk_imported', session, {
+        imported: holdings.length,
+        skipped: bulk.length - normalized.length,
+      });
       return NextResponse.json(
         { holdings, skipped: bulk.length - normalized.length },
         { status: 201 }
@@ -71,6 +95,10 @@ export async function POST(request: Request) {
     }
     const label = normalizeLabel(payload.label);
     const holding = await addHolding(ticker, label);
+    await logAuditEvent('portfolio_holding_added', session, {
+      holdingId: holding.id,
+      ticker: holding.ticker,
+    });
     return NextResponse.json(holding, { status: 201 });
   } catch (error) {
     console.error('Error adding holding:', error);

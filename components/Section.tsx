@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { useAdmin } from '@/lib/admin-client';
-
 import type { Entry } from '@/lib/storage';
+import { ApiError } from '@/lib/data/client';
+import { createEntry, deleteEntry, updateEntry, useEntries } from '@/lib/data/entries';
 import EntryCard from './EntryCard';
 import EntryModal from './EntryModal';
 
@@ -14,70 +15,41 @@ interface SectionProps {
 }
 
 export default function Section({ type, title, description }: SectionProps) {
-  const [entries, setEntries] = useState<Entry[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<Entry | undefined>();
-  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [selectedTag, setSelectedTag] = useState<string>('');
   const [authMessage, setAuthMessage] = useState('');
-  const { hasAdminToken } = useAdmin();
-
-  useEffect(() => {
-    fetchEntries();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type]);
-
-  const fetchEntries = async () => {
-    try {
-      const response = await fetch(`/api/${type}`);
-      const data = await response.json();
-      setEntries(data);
-    } catch (error) {
-      console.error('Error fetching entries:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { canWrite } = useAdmin();
+  const { entries, isLoading, mutate } = useEntries(type);
 
   const handleSave = async (entryData: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      if (!hasAdminToken) {
-        setAuthMessage('Enter the admin token to save changes.');
-        return;
-      }
       if (editingEntry) {
-        const response = await fetch(`/api/${type}/${editingEntry.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(entryData),
-          credentials: 'include',
-        });
-        if (response.status === 401) {
+        if (!canWrite) {
           setAuthMessage('Enter the admin token to update entries.');
           return;
         }
-        const updatedEntry = await response.json();
-        setEntries(entries.map(e => e.id === editingEntry.id ? updatedEntry : e));
-      } else {
-        const response = await fetch(`/api/${type}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(entryData),
-          credentials: 'include',
+        const updatedEntry = await updateEntry(type, editingEntry.id, entryData);
+        await mutate(current => (current ?? []).map(e => (e.id === editingEntry.id ? updatedEntry : e)), {
+          revalidate: false,
         });
-        if (response.status === 401) {
+      } else {
+        if (!canWrite) {
           setAuthMessage('Enter the admin token to add entries.');
           return;
         }
-        const newEntry = await response.json();
-        setEntries([...entries, newEntry]);
+        const newEntry = await createEntry(type, entryData);
+        await mutate(current => [...(current ?? []), newEntry], { revalidate: false });
       }
       setIsModalOpen(false);
       setEditingEntry(undefined);
       setAuthMessage('');
     } catch (error) {
       console.error('Error saving entry:', error);
+      if (error instanceof ApiError) {
+        setAuthMessage(error.message);
+      }
     }
   };
 
@@ -90,27 +62,23 @@ export default function Section({ type, title, description }: SectionProps) {
     if (!confirm('Are you sure you want to delete this entry?')) return;
     
     try {
-      if (!hasAdminToken) {
+      if (!canWrite) {
         setAuthMessage('Enter the admin token to delete entries.');
         return;
       }
-      const response = await fetch(`/api/${type}/${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      if (response.status === 401) {
-        setAuthMessage('Enter the admin token to delete entries.');
-        return;
-      }
-      setEntries(entries.filter(e => e.id !== id));
+      await deleteEntry(type, id);
+      await mutate(current => (current ?? []).filter(e => e.id !== id), { revalidate: false });
       setAuthMessage('');
     } catch (error) {
       console.error('Error deleting entry:', error);
+      if (error instanceof ApiError) {
+        setAuthMessage(error.message);
+      }
     }
   };
 
   const handleAddNew = () => {
-    if (!hasAdminToken) {
+    if (!canWrite) {
       setAuthMessage('Enter the admin token to add new entries.');
       return;
     }
@@ -127,9 +95,10 @@ export default function Section({ type, title, description }: SectionProps) {
         : 'Save links with quick notes and tags for fast retrieval.';
 
   // Get all unique tags from entries
-  const allTags = Array.from(
-    new Set(entries.flatMap(entry => entry.tags || []))
-  ).sort();
+  const allTags = useMemo(
+    () => Array.from(new Set(entries.flatMap(entry => entry.tags || []))).sort(),
+    [entries]
+  );
 
   // Filter entries based on search text and selected tag
   const searchLower = searchText.toLowerCase();
@@ -155,11 +124,11 @@ export default function Section({ type, title, description }: SectionProps) {
           <p>{description}</p>
           <p className="panel-sub">{introTone}</p>
         </div>
-        <button className="add-button" onClick={handleAddNew} disabled={!hasAdminToken}>
+        <button className="add-button" onClick={handleAddNew} disabled={!canWrite}>
           + Add {type === 'journal' ? 'Journal Entry' : type === 'learning' ? 'Learning Note' : 'Resource'}
         </button>
       </div>
-      {!hasAdminToken && (
+      {!canWrite && (
         <div className="auth-banner">
           Enter the admin token to add, edit, or delete entries. Reading is always available.
         </div>
@@ -195,7 +164,7 @@ export default function Section({ type, title, description }: SectionProps) {
       </div>
       
       <div className={`card-grid card-grid-${type}`}>
-        {loading ? (
+        {isLoading ? (
           <p className="loading-message">Loading...</p>
         ) : filteredEntries.length === 0 ? (
           <p className="empty-message">
@@ -211,7 +180,7 @@ export default function Section({ type, title, description }: SectionProps) {
               onEdit={() => handleEdit(entry)}
               onDelete={() => handleDelete(entry.id)}
               type={type}
-              canEdit={hasAdminToken}
+              canEdit={canWrite}
             />
           ))
         )}

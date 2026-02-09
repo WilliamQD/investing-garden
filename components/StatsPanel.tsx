@@ -1,55 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAdmin } from '@/lib/admin-client';
-
-type DailyCount = { date: string; count: number };
-type TagCount = { tag: string; count: number };
-
-interface StatsPayload {
-  totals: { journal: number; learning: number; resources: number };
-  outcomes: { win: number; loss: number; flat: number; open: number };
-  dailyJournal: DailyCount[];
-  activity: DailyCount[];
-  topTags: TagCount[];
-}
+import { ApiError } from '@/lib/data/client';
+import { downloadBackup, restoreBackup, useStats } from '@/lib/data/stats';
 
 const HEATMAP_DAYS = 56;
 
 export default function StatsPanel() {
-  const [stats, setStats] = useState<StatsPayload | null>(null);
-  const [loading, setLoading] = useState(true);
   const [backupMessage, setBackupMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
-  const { hasAdminToken } = useAdmin();
-
-  useEffect(() => {
-    const loadStats = async () => {
-      try {
-        const response = await fetch('/api/stats');
-        if (!response.ok) {
-          setErrorMessage('Analytics are unavailable. Check your database connection.');
-          setStats(null);
-          return;
-        }
-        const data = await response.json();
-        if (!data?.outcomes) {
-          setErrorMessage('Analytics are unavailable. Check your database connection.');
-          setStats(null);
-          return;
-        }
-        setStats(data);
-        setErrorMessage('');
-      } catch (error) {
-        console.error('Failed to load stats', error);
-        setErrorMessage('Analytics are unavailable. Check your database connection.');
-        setStats(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadStats();
-  }, []);
+  const { canWrite } = useAdmin();
+  const { stats, isLoading, errorMessage, mutate } = useStats();
 
   const winRate = useMemo(() => {
     if (!stats) return 0;
@@ -86,56 +47,48 @@ export default function StatsPanel() {
   }, [stats]);
 
   const handleExport = async (format: 'json' | 'zip') => {
-    if (!hasAdminToken) {
-      setBackupMessage('Enter the admin token to export backups.');
-      return;
-    }
     setBackupMessage('Preparing backup...');
-    const response = await fetch(`/api/backup?format=${format}`, {
-      credentials: 'include',
-    });
-    if (!response.ok) {
-      setBackupMessage('Backup failed. Check authentication.');
-      return;
+    try {
+      if (!canWrite) {
+        setBackupMessage('Enter the admin token to export backups.');
+        return;
+      }
+      const blob = await downloadBackup(format);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const dateStamp = new Date().toISOString().slice(0, 10);
+      link.download = `investing-garden-backup-${dateStamp}.${format === 'zip' ? 'zip' : 'json'}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      setBackupMessage('Backup downloaded.');
+    } catch (error) {
+      setBackupMessage(
+        error instanceof ApiError ? error.message : 'Backup failed. Check authentication.'
+      );
     }
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    const dateStamp = new Date().toISOString().slice(0, 10);
-    link.download = `investing-garden-backup-${dateStamp}.${format === 'zip' ? 'zip' : 'json'}`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
-    setBackupMessage('Backup downloaded.');
   };
 
   const handleRestore = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!hasAdminToken) {
-      setBackupMessage('Enter the admin token to restore backups.');
-      return;
-    }
     setBackupMessage('Restoring backup...');
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await fetch('/api/backup', {
-      method: 'POST',
-      body: formData,
-      credentials: 'include',
-    });
-    if (!response.ok) {
-      setBackupMessage('Restore failed. Check the file format.');
-      return;
-    }
-    setBackupMessage('Restore complete. Refreshing stats...');
-    const refreshed = await fetch('/api/stats');
-    if (refreshed.ok) {
-      const data = await refreshed.json();
-      setStats(data);
-      setErrorMessage('');
+    try {
+      if (!canWrite) {
+        setBackupMessage('Enter the admin token to restore backups.');
+        return;
+      }
+      const formData = new FormData();
+      formData.append('file', file);
+      await restoreBackup(formData);
+      setBackupMessage('Restore complete. Refreshing stats...');
+      await mutate();
+    } catch (error) {
+      setBackupMessage(
+        error instanceof ApiError ? error.message : 'Restore failed. Check the file format.'
+      );
     }
   };
 
@@ -150,8 +103,8 @@ export default function StatsPanel() {
         </div>
       </div>
 
-      {loading && <p className="loading-message">Loading analytics...</p>}
-      {!loading && errorMessage && <p className="auth-message">{errorMessage}</p>}
+      {isLoading && <p className="loading-message">Loading analytics...</p>}
+      {!isLoading && errorMessage && <p className="auth-message">{errorMessage}</p>}
 
       {stats && (
         <>
@@ -222,19 +175,19 @@ export default function StatsPanel() {
               Export data to JSON or ZIP. Restore a backup to repopulate the database.
             </p>
             <div className="backup-actions">
-              <button className="btn-secondary" onClick={() => handleExport('json')} disabled={!hasAdminToken}>
-                Export JSON
-              </button>
-              <button className="btn-secondary" onClick={() => handleExport('zip')} disabled={!hasAdminToken}>
-                Export ZIP
-              </button>
-              <label className="file-upload">
-                <input
-                  type="file"
-                  accept=".json,.zip"
-                  onChange={handleRestore}
-                  disabled={!hasAdminToken}
-                />
+                <button className="btn-secondary" onClick={() => handleExport('json')} disabled={!canWrite}>
+                  Export JSON
+                </button>
+                <button className="btn-secondary" onClick={() => handleExport('zip')} disabled={!canWrite}>
+                  Export ZIP
+                </button>
+                <label className="file-upload">
+                  <input
+                    type="file"
+                    accept=".json,.zip"
+                    onChange={handleRestore}
+                    disabled={!canWrite}
+                  />
                 Restore from file
               </label>
             </div>
