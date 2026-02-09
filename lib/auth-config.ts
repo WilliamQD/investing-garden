@@ -3,7 +3,7 @@ import Auth0Provider from 'next-auth/providers/auth0';
 
 type Role = 'admin' | 'editor' | 'viewer';
 
-const OIDC_SESSION_TTL_SECONDS = 60 * 60 * 12;
+const OIDC_SESSION_MAX_AGE_SECONDS = 60 * 60 * 12;
 
 const parseRoleList = (value: string | undefined) =>
   (value ?? '')
@@ -92,7 +92,7 @@ export const authOptions: NextAuthOptions = {
     : [],
   session: {
     strategy: 'jwt',
-    maxAge: OIDC_SESSION_TTL_SECONDS,
+    maxAge: OIDC_SESSION_MAX_AGE_SECONDS,
     updateAge: 60 * 30,
   },
   callbacks: {

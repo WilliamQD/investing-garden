@@ -40,6 +40,7 @@ async function ensureTables() {
 
 type SqlValue = string | number | boolean | null | undefined;
 type SqlTag = (strings: TemplateStringsArray, ...values: SqlValue[]) => Promise<unknown>;
+type SqlClient = { query: (text: string, params?: SqlValue[]) => Promise<unknown> };
 
 async function replaceAllEntries(db: SqlTag, type: EntryType, entries: Entry[]): Promise<void> {
   if (type === 'journal') {
@@ -73,6 +74,73 @@ async function replaceAllEntries(db: SqlTag, type: EntryType, entries: Entry[]):
         INSERT INTO resource_entries (id, title, content, url, source_type, tags, created_at, updated_at)
         VALUES (${entryId}, ${entry.title}, ${entry.content}, ${entry.url ?? ''}, ${entry.sourceType ?? null}, ${entry.tags ? JSON.stringify(entry.tags) : null}, ${createdAt}, ${updatedAt})
       `;
+    }
+  }
+}
+
+async function replaceAllEntriesWithClient(
+  client: SqlClient,
+  type: EntryType,
+  entries: Entry[]
+): Promise<void> {
+  if (type === 'journal') {
+    await client.query('DELETE FROM journal_entries');
+  } else if (type === 'learning') {
+    await client.query('DELETE FROM learning_entries');
+  } else {
+    await client.query('DELETE FROM resource_entries');
+  }
+  for (const entry of entries) {
+    const trimmedId = entry.id?.trim();
+    if (entry.id && !trimmedId) {
+      console.warn('Backup entry missing id; generating a new one.');
+    }
+    const entryId = trimmedId ? trimmedId : randomUUID();
+    const createdAt = entry.createdAt || new Date().toISOString();
+    const updatedAt = entry.updatedAt || createdAt;
+
+    if (type === 'journal') {
+      await client.query(
+        'INSERT INTO journal_entries (id, title, content, outcome, emotion, tags, ticker, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+        [
+          entryId,
+          entry.title,
+          entry.content,
+          entry.outcome ?? null,
+          entry.emotion ?? null,
+          entry.tags ? JSON.stringify(entry.tags) : null,
+          entry.ticker ?? null,
+          createdAt,
+          updatedAt,
+        ]
+      );
+    } else if (type === 'learning') {
+      await client.query(
+        'INSERT INTO learning_entries (id, title, content, goal, next_step, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        [
+          entryId,
+          entry.title,
+          entry.content,
+          entry.goal ?? null,
+          entry.nextStep ?? null,
+          createdAt,
+          updatedAt,
+        ]
+      );
+    } else {
+      await client.query(
+        'INSERT INTO resource_entries (id, title, content, url, source_type, tags, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+        [
+          entryId,
+          entry.title,
+          entry.content,
+          entry.url ?? '',
+          entry.sourceType ?? null,
+          entry.tags ? JSON.stringify(entry.tags) : null,
+          createdAt,
+          updatedAt,
+        ]
+      );
     }
   }
 }
@@ -261,11 +329,10 @@ class Storage {
     await ensureTables();
     const client = await sql.connect();
     try {
-      const clientSql = client.sql.bind(client);
       await client.query('BEGIN');
-      await replaceAllEntries(clientSql, 'journal', payload.journal);
-      await replaceAllEntries(clientSql, 'learning', payload.learning);
-      await replaceAllEntries(clientSql, 'resources', payload.resources);
+      await replaceAllEntriesWithClient(client, 'journal', payload.journal);
+      await replaceAllEntriesWithClient(client, 'learning', payload.learning);
+      await replaceAllEntriesWithClient(client, 'resources', payload.resources);
       const journalCount = await client.query('SELECT COUNT(*) FROM journal_entries');
       const learningCount = await client.query('SELECT COUNT(*) FROM learning_entries');
       const resourceCount = await client.query('SELECT COUNT(*) FROM resource_entries');

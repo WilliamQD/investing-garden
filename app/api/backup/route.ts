@@ -21,6 +21,7 @@ const MISSING_KEYS_MESSAGE =
   'Backup must include journal, learning, and resources keys.';
 const MAX_BACKUP_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_BACKUP_FORM_BYTES = MAX_BACKUP_FILE_BYTES + 1024 * 1024;
+// Limit restore size to avoid excessive load or long-running transactions.
 const MAX_BACKUP_ENTRIES = 5000;
 const INVALID_ENTRIES_MESSAGE = (count: number) =>
   `Backup contains ${count} invalid ${count === 1 ? 'entry' : 'entries'}.`;
