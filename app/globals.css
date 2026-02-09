@@ -738,7 +738,17 @@ body {
   margin-top: 1rem;
 }
 
+.holdings-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
 .holding-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
   background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(15, 23, 42, 0.95));
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
@@ -774,6 +784,40 @@ body {
 .holding-label-muted {
   color: rgba(148, 163, 184, 0.7);
   font-style: italic;
+}
+
+.holding-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.6rem;
+}
+
+.holding-metric {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+}
+
+.holding-metric-label {
+  margin: 0;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.holding-metric-value {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.holding-metric-sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.7rem;
+  color: var(--text-muted);
 }
 
 .holding-edit {
@@ -888,6 +932,29 @@ body {
   border-radius: var(--radius-md);
   background: rgba(15, 23, 42, 0.65);
   border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.sparkline-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.sparkline-delta {
+  font-weight: 600;
+}
+
+.sparkline-delta-positive {
+  color: var(--accent);
+}
+
+.sparkline-delta-negative {
+  color: var(--accent-warm);
 }
 
 .sparkline svg {

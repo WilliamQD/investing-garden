@@ -5,9 +5,10 @@ import { useEffect, useState } from 'react';
 interface MarketPriceProps {
   ticker: string;
   refreshToken?: number;
+  onData?: (ticker: string, data: MarketData) => void;
 }
 
-interface MarketData {
+export interface MarketData {
   price: number;
   currency?: string;
   changePercent?: number;
@@ -25,7 +26,7 @@ const CACHE_TTL = Number.isFinite(cacheEnvValue)
   : DEFAULT_CACHE_TTL;
 const marketCache = new Map<string, { data: MarketData; timestamp: number }>();
 
-export default function MarketPrice({ ticker, refreshToken }: MarketPriceProps) {
+export default function MarketPrice({ ticker, refreshToken, onData }: MarketPriceProps) {
   const [data, setData] = useState<MarketData | null>(null);
   const [error, setError] = useState<string>('');
 
@@ -36,6 +37,7 @@ export default function MarketPrice({ ticker, refreshToken }: MarketPriceProps) 
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       setData(cached.data);
       setError('');
+      onData?.(normalizedTicker, cached.data);
       if (!refreshToken) {
         return () => {
           isActive = false;
@@ -50,26 +52,41 @@ export default function MarketPrice({ ticker, refreshToken }: MarketPriceProps) 
           `/api/market?ticker=${encodeURIComponent(normalizedTicker)}${refreshQuery}`,
           refreshToken ? { cache: 'no-store' } : undefined
         );
-        if (!response.ok) {
-          throw new Error('Failed to fetch market data');
-        }
         const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result?.error || 'Failed to fetch market data');
+        }
+        const price = Number(result.price);
+        if (!Number.isFinite(price)) {
+          throw new Error('Invalid price data');
+        }
+        const changePercent = Number(result.changePercent);
         if (isActive) {
           const nextData = {
-            price: result.price,
-            currency: result.currency,
-            changePercent: result.changePercent,
-            updatedAt: result.updatedAt,
-            stale: result.stale,
-            cached: result.cached,
+            price,
+            currency: typeof result.currency === 'string' ? result.currency : undefined,
+            changePercent: Number.isFinite(changePercent) ? changePercent : undefined,
+            updatedAt: typeof result.updatedAt === 'string' ? result.updatedAt : undefined,
+            stale: Boolean(result.stale),
+            cached: Boolean(result.cached),
           };
           marketCache.set(normalizedTicker, { data: nextData, timestamp: Date.now() });
           setData(nextData);
+          onData?.(normalizedTicker, nextData);
         }
       } catch (error) {
         console.error('Market price fetch failed', error);
         if (isActive) {
-          setError('Price unavailable');
+          const fallback = marketCache.get(normalizedTicker);
+          if (fallback) {
+            const nextData = { ...fallback.data, stale: true };
+            marketCache.set(normalizedTicker, { data: nextData, timestamp: fallback.timestamp });
+            setData(nextData);
+            setError('');
+            onData?.(normalizedTicker, nextData);
+          } else {
+            setError('Price unavailable');
+          }
         }
       }
     };
@@ -77,7 +94,7 @@ export default function MarketPrice({ ticker, refreshToken }: MarketPriceProps) 
     return () => {
       isActive = false;
     };
-  }, [ticker, refreshToken]);
+  }, [ticker, refreshToken, onData]);
 
   if (error) {
     return <p className="market-price market-price-error">{error}</p>;

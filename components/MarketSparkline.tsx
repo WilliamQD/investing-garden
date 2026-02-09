@@ -70,22 +70,46 @@ export default function MarketSparkline({ ticker, refreshToken }: MarketSparklin
   }, [ticker, refreshToken]);
 
   const sparkline = useMemo(() => {
-    if (!candles.length) return '';
+    if (!candles.length) {
+      return { points: '', min: null, max: null, start: null, end: null };
+    }
     const values = candles.map(point => Number(point.close)).filter(value => Number.isFinite(value));
-    if (values.length < 2) return '';
+    if (values.length < 2) {
+      return { points: '', min: null, max: null, start: null, end: null };
+    }
     const min = Math.min(...values);
     const max = Math.max(...values);
     const range = max - min || 1;
     const width = 100;
     const height = 40;
-    return values
+    const points = values
       .map((value, idx) => {
         const x = (idx / Math.max(values.length - 1, 1)) * width;
         const y = height - ((value - min) / range) * height;
         return `${x},${y}`;
       })
       .join(' ');
+    return {
+      points,
+      min,
+      max,
+      start: values[0],
+      end: values[values.length - 1],
+    };
   }, [candles]);
+
+  const formatCurrency = (value: number | null) => {
+    if (value == null) return '--';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
+  const deltaPercent =
+    sparkline.start != null && sparkline.end != null && sparkline.start !== 0
+      ? ((sparkline.end - sparkline.start) / sparkline.start) * 100
+      : null;
 
   if (error) {
     return <p className="sparkline-message">{error}</p>;
@@ -97,8 +121,27 @@ export default function MarketSparkline({ ticker, refreshToken }: MarketSparklin
 
   return (
     <div className="sparkline">
+      <div className="sparkline-meta">
+        <span>30d range</span>
+        <span>
+          {formatCurrency(sparkline.min)} → {formatCurrency(sparkline.max)}
+        </span>
+        <span
+          className={`sparkline-delta ${
+            deltaPercent != null
+              ? deltaPercent > 0
+                ? 'sparkline-delta-positive'
+                : deltaPercent < 0
+                  ? 'sparkline-delta-negative'
+                  : ''
+              : ''
+          }`.trim()}
+        >
+          {deltaPercent != null ? `${deltaPercent > 0 ? '+' : ''}${deltaPercent.toFixed(2)}%` : '--'}
+        </span>
+      </div>
       <svg viewBox="0 0 100 40" preserveAspectRatio="none">
-        <polyline points={sparkline} fill="none" stroke="url(#sparkline-grad)" strokeWidth="1.6" />
+        <polyline points={sparkline.points} fill="none" stroke="url(#sparkline-grad)" strokeWidth="1.6" />
         <defs>
           <linearGradient id="sparkline-grad" x1="0" x2="1" y1="0" y2="0">
             <stop offset="0%" stopColor="#22d3ee" />

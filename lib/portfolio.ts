@@ -15,6 +15,8 @@ export interface Holding {
   id: string;
   ticker: string;
   label?: string;
+  quantity?: number;
+  purchasePrice?: number;
   createdAt: string;
 }
 
@@ -64,6 +66,8 @@ const mapHolding = (row: Record<string, unknown>): Holding => ({
   id: row.id as string,
   ticker: row.ticker as string,
   label: (row.label as string) || undefined,
+  quantity: row.quantity != null ? Number(row.quantity) : undefined,
+  purchasePrice: row.purchase_price != null ? Number(row.purchase_price) : undefined,
   createdAt: new Date(row.created_at as string).toISOString(),
 });
 
@@ -96,18 +100,23 @@ export async function upsertPortfolioSnapshot(
 export async function getHoldings(): Promise<Holding[]> {
   await ensureTables();
   const { rows } = await sql`
-    SELECT id, ticker, label, created_at
+    SELECT id, ticker, label, quantity, purchase_price, created_at
     FROM portfolio_holdings
     ORDER BY created_at DESC
   `;
   return rows.map(row => mapHolding(row));
 }
 
-export async function addHolding(ticker: string, label?: string): Promise<Holding> {
+export async function addHolding(
+  ticker: string,
+  label?: string,
+  quantity?: number | null,
+  purchasePrice?: number | null
+): Promise<Holding> {
   await ensureTables();
   const normalizedTicker = ticker.trim().toUpperCase();
   const { rows: existing } = await sql`
-    SELECT id, ticker, label, created_at
+    SELECT id, ticker, label, quantity, purchase_price, created_at
     FROM portfolio_holdings
     WHERE ticker = ${normalizedTicker}
     LIMIT 1
@@ -118,33 +127,48 @@ export async function addHolding(ticker: string, label?: string): Promise<Holdin
   const id = randomUUID();
   const createdAt = new Date().toISOString();
   const { rows } = await sql`
-    INSERT INTO portfolio_holdings (id, ticker, label, created_at)
-    VALUES (${id}, ${normalizedTicker}, ${label ?? null}, ${createdAt})
+    INSERT INTO portfolio_holdings (id, ticker, label, quantity, purchase_price, created_at)
+    VALUES (${id}, ${normalizedTicker}, ${label ?? null}, ${quantity ?? null}, ${purchasePrice ?? null}, ${createdAt})
     ON CONFLICT (ticker)
-    DO UPDATE SET label = COALESCE(EXCLUDED.label, portfolio_holdings.label)
-    RETURNING id, ticker, label, created_at
+    DO UPDATE SET
+      label = COALESCE(EXCLUDED.label, portfolio_holdings.label),
+      quantity = COALESCE(EXCLUDED.quantity, portfolio_holdings.quantity),
+      purchase_price = COALESCE(EXCLUDED.purchase_price, portfolio_holdings.purchase_price)
+    RETURNING id, ticker, label, quantity, purchase_price, created_at
   `;
   return mapHolding(rows[0]);
 }
 
-export async function addHoldings(holdings: { ticker: string; label?: string }[]): Promise<Holding[]> {
+export async function addHoldings(
+  holdings: { ticker: string; label?: string; quantity?: number | null; purchasePrice?: number | null }[]
+): Promise<Holding[]> {
   await ensureTables();
   if (!holdings.length) return [];
-  const values: (string | null)[] = [];
+  const values: (string | number | null)[] = [];
   const rows = holdings.map((holding, index) => {
     const id = randomUUID();
     const normalizedTicker = holding.ticker.trim().toUpperCase();
     const createdAt = new Date().toISOString();
-    const offset = index * 4;
-    values.push(id, normalizedTicker, holding.label ?? null, createdAt);
-    return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`;
+    const offset = index * 6;
+    values.push(
+      id,
+      normalizedTicker,
+      holding.label ?? null,
+      holding.quantity ?? null,
+      holding.purchasePrice ?? null,
+      createdAt
+    );
+    return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6})`;
   });
   const query = `
-    INSERT INTO portfolio_holdings (id, ticker, label, created_at)
+    INSERT INTO portfolio_holdings (id, ticker, label, quantity, purchase_price, created_at)
     VALUES ${rows.join(', ')}
     ON CONFLICT (ticker)
-    DO UPDATE SET label = COALESCE(EXCLUDED.label, portfolio_holdings.label)
-    RETURNING id, ticker, label, created_at
+    DO UPDATE SET
+      label = COALESCE(EXCLUDED.label, portfolio_holdings.label),
+      quantity = COALESCE(EXCLUDED.quantity, portfolio_holdings.quantity),
+      purchase_price = COALESCE(EXCLUDED.purchase_price, portfolio_holdings.purchase_price)
+    RETURNING id, ticker, label, quantity, purchase_price, created_at
   `;
   const result = await sql.query(query, values);
   return result.rows.map(row => mapHolding(row));
@@ -158,13 +182,20 @@ export async function deleteHolding(id: string): Promise<boolean> {
   return (result.rowCount ?? 0) > 0;
 }
 
-export async function updateHoldingLabel(id: string, label: string | null): Promise<Holding | null> {
+export async function updateHolding(
+  id: string,
+  {
+    label,
+    quantity,
+    purchasePrice,
+  }: { label: string | null; quantity: number | null; purchasePrice: number | null }
+): Promise<Holding | null> {
   await ensureTables();
   const { rows } = await sql`
     UPDATE portfolio_holdings
-    SET label = ${label}
+    SET label = ${label}, quantity = ${quantity}, purchase_price = ${purchasePrice}
     WHERE id = ${id}
-    RETURNING id, ticker, label, created_at
+    RETURNING id, ticker, label, quantity, purchase_price, created_at
   `;
   if (!rows[0]) {
     return null;

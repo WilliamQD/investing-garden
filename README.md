@@ -5,7 +5,7 @@ Investing Garden is a clean, industrial workspace for tracking portfolio progres
 ## Features
 
 - **Dashboard view**: Portfolio snapshot chart + live holdings tracker
-- **Holdings watchlist**: Add symbols, bulk import from CSV, and see live prices with recent trendlines
+- **Holdings watchlist**: Track symbols, quantities, cost basis, and live prices with recent trendlines
 - **Trade journal**: Log trades with rationale, emotion, and outcomes
 - **Knowledge hub**: Merge learning notes and external resources into one library
 - **Admin-only edits**: Public read access with role-aware, session-based write actions
@@ -28,7 +28,7 @@ Investing Garden is a clean, industrial workspace for tracking portfolio progres
 
 ### Prerequisites
 
-- Node.js 18+ and npm
+- Node.js 18+ and pnpm
 
 ### Installation
 
@@ -40,7 +40,7 @@ cd investing-garden
 
 2. Install dependencies:
 ```bash
-npm install
+pnpm install
 ```
 
 3. Create a `.env.local` file with the required secrets:
@@ -74,7 +74,7 @@ OIDC_EDITOR_ROLES=editor
 
 4. Run the development server:
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 5. Open [http://localhost:3000](http://localhost:3000) in your browser
@@ -82,8 +82,8 @@ npm run dev
 ### Building for Production
 
 ```bash
-npm run build
-npm start
+pnpm run build
+pnpm start
 ```
 
 ## Usage
@@ -95,7 +95,7 @@ Click the Visitor/Admin pill in the header, enter approved credentials or use SS
 ### Dashboard workflows
 
 - Add daily portfolio snapshots to build the account trajectory chart.
-- Add holdings symbols (or paste a CSV list) to monitor live prices and recent price trends.
+- Add holdings symbols (or paste a CSV list) with optional quantities and cost basis to monitor live prices and gains.
 
 ### Knowledge hub
 
@@ -195,7 +195,7 @@ Nothing on this website is financial advice. This is a personal learning project
 ## Quality checks
 
 ```bash
-npm run lint
-npm run typecheck
-npm run test
+pnpm run lint
+pnpm run typecheck
+pnpm run test
 ```
