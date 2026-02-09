@@ -120,7 +120,7 @@ const parseSessionCookie = (value: string) => {
   const parts = payload.split(':');
   if (parts.length < 2 || parts.length > 3) return null;
   const [username, roleOrExpires, expiresAtText] = parts;
-  const role = parts.length === 3 ? normalizeRole(roleOrExpires) : 'admin';
+  const role = parts.length === 3 ? normalizeRole(roleOrExpires) : 'viewer';
   const expiresAt = Number(parts.length === 3 ? expiresAtText : roleOrExpires);
   if (!username || !Number.isFinite(expiresAt)) return null;
   if (expiresAt < Date.now()) return null;
@@ -277,6 +277,8 @@ const getHeaderToken = async () => {
 };
 
 const getRolePermissions = (role: Role) => ROLE_PERMISSIONS[normalizeRole(role)];
+
+export const getRolePermissionsForRole = (role: Role) => getRolePermissions(role);
 
 export const getAuthorizedSession = async () => {
   const oidcSession = await getOidcSession();
