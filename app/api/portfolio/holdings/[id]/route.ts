@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getAuthorizedSession } from '@/lib/auth';
 import { logAuditEvent } from '@/lib/audit';
-import { deleteHolding, updateHoldingLabel } from '@/lib/portfolio';
+import { deleteHolding, updateHolding } from '@/lib/portfolio';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { normalizeLabel } from '@/lib/validation';
 
@@ -78,18 +78,46 @@ export async function PUT(
     if (!body || Array.isArray(body) || typeof body !== 'object') {
       return NextResponse.json({ error: 'Invalid request payload' }, { status: 400 });
     }
-    const labelInput = (body as Record<string, unknown>).label;
-    if (typeof labelInput !== 'string') {
+    const payload = body as Record<string, unknown>;
+    const labelInput = payload.label;
+    if (labelInput != null && typeof labelInput !== 'string') {
       return NextResponse.json({ error: 'Label must be a string.' }, { status: 400 });
     }
-    const label = normalizeLabel(labelInput);
-    const updated = await updateHoldingLabel(id, label ?? null);
+    const label = labelInput == null ? null : normalizeLabel(labelInput) ?? null;
+    const parseOptionalNumber = (
+      value: unknown,
+      fieldName: string
+    ): { value: number | null; error?: string } => {
+      if (value == null || value === '') {
+        return { value: null };
+      }
+      const numeric = typeof value === 'number' ? value : Number.parseFloat(String(value));
+      if (!Number.isFinite(numeric) || numeric < 0) {
+        return { value: null, error: `${fieldName} must be a non-negative number.` };
+      }
+      return { value: numeric };
+    };
+    const quantityResult = parseOptionalNumber(payload.quantity, 'Quantity');
+    if (quantityResult.error) {
+      return NextResponse.json({ error: quantityResult.error }, { status: 400 });
+    }
+    const purchaseResult = parseOptionalNumber(payload.purchasePrice, 'Purchase price');
+    if (purchaseResult.error) {
+      return NextResponse.json({ error: purchaseResult.error }, { status: 400 });
+    }
+    const updated = await updateHolding(id, {
+      label,
+      quantity: quantityResult.value,
+      purchasePrice: purchaseResult.value,
+    });
     if (!updated) {
       return NextResponse.json({ error: 'Holding not found' }, { status: 404 });
     }
-    await logAuditEvent('portfolio_holding_label_updated', session, {
+    await logAuditEvent('portfolio_holding_updated', session, {
       holdingId: updated.id,
       label: updated.label ?? null,
+      quantity: updated.quantity ?? null,
+      purchasePrice: updated.purchasePrice ?? null,
     });
     return NextResponse.json(updated);
   } catch (error) {

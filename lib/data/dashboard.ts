@@ -5,7 +5,13 @@ import { ApiError, requestJson } from '@/lib/data/client';
 
 export type PortfolioSnapshot = { date: string; value: number };
 
-export type Holding = { id: string; ticker: string; label?: string };
+export type Holding = {
+  id: string;
+  ticker: string;
+  label?: string;
+  quantity?: number;
+  purchasePrice?: number;
+};
 
 export type SiteSettings = {
   headline: string;
@@ -90,7 +96,12 @@ export const addSnapshot = async (payload: { date: string; value: number }) =>
     }
   );
 
-export const addHolding = async (payload: { ticker: string; label?: string }) =>
+export const addHolding = async (payload: {
+  ticker: string;
+  label?: string;
+  quantity?: number | null;
+  purchasePrice?: number | null;
+}) =>
   requestJson<Holding>(
     '/api/portfolio/holdings',
     {
@@ -103,7 +114,9 @@ export const addHolding = async (payload: { ticker: string; label?: string }) =>
     }
   );
 
-export const importHoldings = async (payload: { holdings: { ticker: string; label?: string }[] }) =>
+export const importHoldings = async (payload: {
+  holdings: { ticker: string; label?: string; quantity?: number | null; purchasePrice?: number | null }[];
+}) =>
   requestJson<{ holdings: Holding[]; skipped: number }>(
     '/api/portfolio/holdings',
     {
@@ -128,16 +141,25 @@ export const removeHolding = async (id: string) =>
     }
   );
 
-export const updateHoldingLabel = async (payload: { id: string; label: string }) =>
+export const updateHolding = async (payload: {
+  id: string;
+  label?: string;
+  quantity?: number | null;
+  purchasePrice?: number | null;
+}) =>
   requestJson<Holding>(
     `/api/portfolio/holdings/${payload.id}`,
     {
       method: 'PUT',
-      body: JSON.stringify({ label: payload.label }),
+      body: JSON.stringify({
+        label: payload.label,
+        quantity: payload.quantity,
+        purchasePrice: payload.purchasePrice,
+      }),
     },
     {
-      unauthorizedMessage: 'Sign in as admin to update holding labels.',
-      errorMessage: 'Unable to update holding label right now.',
+      unauthorizedMessage: 'Sign in as admin to update holding details.',
+      errorMessage: 'Unable to update holding details right now.',
     }
   );
 

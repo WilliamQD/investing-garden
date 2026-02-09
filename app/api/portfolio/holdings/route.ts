@@ -7,6 +7,19 @@ import { checkRateLimit } from '@/lib/rate-limit';
 import { normalizeLabel, normalizeTicker } from '@/lib/validation';
 
 const MAX_BULK_HOLDINGS = 50;
+const parseOptionalNumber = (
+  value: unknown,
+  fieldName: string
+): { value: number | null; error?: string } => {
+  if (value == null || value === '') {
+    return { value: null };
+  }
+  const numeric = typeof value === 'number' ? value : Number.parseFloat(String(value));
+  if (!Number.isFinite(numeric) || numeric < 0) {
+    return { value: null, error: `${fieldName} must be a non-negative number.` };
+  }
+  return { value: numeric };
+};
 
 export async function GET() {
   try {
@@ -55,7 +68,12 @@ export async function POST(request: Request) {
       if (bulk.length > MAX_BULK_HOLDINGS) {
         return NextResponse.json({ error: `Holdings imports are limited to ${MAX_BULK_HOLDINGS} rows.` }, { status: 400 });
       }
-      const normalized: { ticker: string; label?: string }[] = [];
+      const normalized: {
+        ticker: string;
+        label?: string;
+        quantity?: number | null;
+        purchasePrice?: number | null;
+      }[] = [];
       const errors: { index: number; message: string }[] = [];
       const seen = new Set<string>();
       bulk.forEach((item, index) => {
@@ -73,7 +91,22 @@ export async function POST(request: Request) {
           return;
         }
         const label = normalizeLabel(record.label);
-        normalized.push({ ticker, label });
+        const quantityResult = parseOptionalNumber(record.quantity, 'Quantity');
+        if (quantityResult.error) {
+          errors.push({ index, message: quantityResult.error });
+          return;
+        }
+        const purchaseResult = parseOptionalNumber(record.purchasePrice, 'Purchase price');
+        if (purchaseResult.error) {
+          errors.push({ index, message: purchaseResult.error });
+          return;
+        }
+        normalized.push({
+          ticker,
+          label,
+          quantity: quantityResult.value,
+          purchasePrice: purchaseResult.value,
+        });
         seen.add(ticker);
       });
       if (errors.length) {
@@ -94,7 +127,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Ticker must be 1-10 characters (letters, numbers, . or -)' }, { status: 400 });
     }
     const label = normalizeLabel(payload.label);
-    const holding = await addHolding(ticker, label);
+    const quantityResult = parseOptionalNumber(payload.quantity, 'Quantity');
+    if (quantityResult.error) {
+      return NextResponse.json({ error: quantityResult.error }, { status: 400 });
+    }
+    const purchaseResult = parseOptionalNumber(payload.purchasePrice, 'Purchase price');
+    if (purchaseResult.error) {
+      return NextResponse.json({ error: purchaseResult.error }, { status: 400 });
+    }
+    const holding = await addHolding(ticker, label, quantityResult.value, purchaseResult.value);
     await logAuditEvent('portfolio_holding_added', session, {
       holdingId: holding.id,
       ticker: holding.ticker,
