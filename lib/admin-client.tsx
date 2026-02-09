@@ -5,7 +5,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 type AdminContextValue = {
   hasAdminToken: boolean;
   username: string;
-  authHeaders: Record<string, string>;
   login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
   loading: boolean;
@@ -80,7 +79,6 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     () => ({
       hasAdminToken,
       username,
-      authHeaders: {},
       login,
       logout,
       loading,

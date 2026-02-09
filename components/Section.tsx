@@ -21,7 +21,7 @@ export default function Section({ type, title, description }: SectionProps) {
   const [searchText, setSearchText] = useState('');
   const [selectedTag, setSelectedTag] = useState<string>('');
   const [authMessage, setAuthMessage] = useState('');
-  const { authHeaders, hasAdminToken } = useAdmin();
+  const { hasAdminToken } = useAdmin();
 
   useEffect(() => {
     fetchEntries();
@@ -49,7 +49,7 @@ export default function Section({ type, title, description }: SectionProps) {
       if (editingEntry) {
         const response = await fetch(`/api/${type}/${editingEntry.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(entryData),
           credentials: 'include',
         });
@@ -62,7 +62,7 @@ export default function Section({ type, title, description }: SectionProps) {
       } else {
         const response = await fetch(`/api/${type}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(entryData),
           credentials: 'include',
         });
@@ -96,7 +96,6 @@ export default function Section({ type, title, description }: SectionProps) {
       }
       const response = await fetch(`/api/${type}/${id}`, {
         method: 'DELETE',
-        headers: authHeaders,
         credentials: 'include',
       });
       if (response.status === 401) {

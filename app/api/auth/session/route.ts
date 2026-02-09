@@ -5,7 +5,13 @@ import { getAuthorizedSession } from '@/lib/auth';
 export async function GET() {
   const session = await getAuthorizedSession();
   if (!session) {
-    return NextResponse.json({ isAdmin: false });
+    const response = NextResponse.json({ isAdmin: false });
+    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('Vary', 'Cookie');
+    return response;
   }
-  return NextResponse.json({ isAdmin: true, username: session.username });
+  const response = NextResponse.json({ isAdmin: true, username: session.username });
+  response.headers.set('Cache-Control', 'no-store');
+  response.headers.set('Vary', 'Cookie');
+  return response;
 }
