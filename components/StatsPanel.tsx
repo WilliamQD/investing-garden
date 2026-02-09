@@ -21,7 +21,7 @@ export default function StatsPanel() {
   const [loading, setLoading] = useState(true);
   const [backupMessage, setBackupMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const { authHeaders, hasAdminToken } = useAdmin();
+  const { hasAdminToken } = useAdmin();
 
   useEffect(() => {
     const loadStats = async () => {
@@ -92,7 +92,6 @@ export default function StatsPanel() {
     }
     setBackupMessage('Preparing backup...');
     const response = await fetch(`/api/backup?format=${format}`, {
-      headers: authHeaders,
       credentials: 'include',
     });
     if (!response.ok) {
@@ -125,7 +124,6 @@ export default function StatsPanel() {
     const response = await fetch('/api/backup', {
       method: 'POST',
       body: formData,
-      headers: authHeaders,
       credentials: 'include',
     });
     if (!response.ok) {

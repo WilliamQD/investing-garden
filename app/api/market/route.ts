@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { logError } from '@/lib/logger';
 import { normalizeTicker } from '@/lib/validation';
 
 type QuotePayload = {
@@ -76,7 +77,7 @@ export async function GET(request: Request) {
       { headers: { 'Cache-Control': CACHE_HEADER } }
     );
   } catch (error) {
-    console.error('Error fetching market data:', error);
+    logError('market_quote_fetch_failed', error, { ticker: normalizedTicker });
     if (cached) {
       return NextResponse.json(
         { ticker: normalizedTicker, ...cached.data, stale: true },

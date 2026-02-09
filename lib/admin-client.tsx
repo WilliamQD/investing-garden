@@ -1,48 +1,89 @@
 'use client';
 
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 type AdminContextValue = {
-  token: string;
   hasAdminToken: boolean;
-  authHeaders: Record<string, string>;
-  setToken: (value: string) => void;
+  username: string;
+  login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  logout: () => Promise<void>;
+  loading: boolean;
 };
 
 const AdminContext = createContext<AdminContextValue | null>(null);
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
-  const [token, setTokenState] = useState(() => {
-    if (typeof window === 'undefined') return '';
-    return window.sessionStorage.getItem('adminToken') ?? '';
-  });
+  const [hasAdminToken, setHasAdminToken] = useState(false);
+  const [username, setUsername] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const setToken = useCallback((value: string) => {
-    setTokenState(value);
-    if (typeof window === 'undefined') return;
-    if (value) {
-      window.sessionStorage.setItem('adminToken', value);
-    } else {
-      window.sessionStorage.removeItem('adminToken');
+  const loadSession = useCallback(async () => {
+    try {
+      const response = await fetch('/api/auth/session', { credentials: 'include' });
+      if (!response.ok) {
+        setHasAdminToken(false);
+        setUsername('');
+        return;
+      }
+      const data = await response.json();
+      setHasAdminToken(Boolean(data.isAdmin));
+      setUsername(typeof data.username === 'string' ? data.username : '');
+    } catch {
+      setHasAdminToken(false);
+      setUsername('');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  const authHeaders = useMemo<Record<string, string>>(() => {
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers['x-admin-token'] = token;
+  useEffect(() => {
+    void loadSession();
+  }, [loadSession]);
+
+  const login = useCallback(async (nextUsername: string, password: string) => {
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: nextUsername, password }),
+        credentials: 'include',
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return {
+          ok: false,
+          error: typeof data.error === 'string' ? data.error : 'Unable to authenticate.',
+        };
+      }
+      setHasAdminToken(true);
+      setUsername(typeof data.username === 'string' ? data.username : nextUsername);
+      return { ok: true };
+    } catch {
+      return { ok: false, error: 'Unable to authenticate.' };
     }
-    return headers;
-  }, [token]);
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } finally {
+      setHasAdminToken(false);
+      setUsername('');
+    }
+  }, []);
 
   const contextValue = useMemo(
     () => ({
-      token,
-      hasAdminToken: Boolean(token),
-      authHeaders,
-      setToken,
+      hasAdminToken,
+      username,
+      login,
+      logout,
+      loading,
     }),
-    [authHeaders, token, setToken]
+    [hasAdminToken, loading, login, logout, username]
   );
 
   return <AdminContext.Provider value={contextValue}>{children}</AdminContext.Provider>;

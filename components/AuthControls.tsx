@@ -1,26 +1,35 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { useAdmin } from '@/lib/admin-client';
 
 export default function AuthControls() {
-  const { token, hasAdminToken, setToken } = useAdmin();
-  const [draftToken, setDraftToken] = useState(token);
+  const { hasAdminToken, username, login, logout, loading } = useAdmin();
+  const [draftUsername, setDraftUsername] = useState('');
+  const [draftPassword, setDraftPassword] = useState('');
+  const [status, setStatus] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    setDraftToken(token);
-  }, [token]);
-
-  const handleSave = () => {
-    setToken(draftToken.trim());
+  const handleLogin = async () => {
+    setSubmitting(true);
+    setStatus('');
+    const result = await login(draftUsername, draftPassword);
+    if (!result.ok) {
+      setStatus(result.error ?? 'Authentication failed.');
+      setSubmitting(false);
+      return;
+    }
+    setDraftPassword('');
     setIsOpen(false);
+    setSubmitting(false);
   };
 
-  const handleClear = () => {
-    setDraftToken('');
-    setToken('');
+  const handleLogout = async () => {
+    await logout();
+    setDraftPassword('');
+    setStatus('');
     setIsOpen(false);
   };
 
@@ -30,6 +39,7 @@ export default function AuthControls() {
         className={`auth-toggle ${hasAdminToken ? 'auth-toggle-active' : ''}`}
         onClick={() => setIsOpen(prev => !prev)}
         type="button"
+        disabled={loading}
       >
         <span className={`auth-dot ${hasAdminToken ? 'auth-dot-active' : ''}`} />
         {hasAdminToken ? 'Admin' : 'Visitor'}
@@ -40,7 +50,7 @@ export default function AuthControls() {
             <div>
               <p className="auth-title">Admin access</p>
               <p className="auth-caption">
-                Enter a token to unlock edits and data entry.
+                Sign in with approved credentials to unlock edit permissions.
               </p>
             </div>
             <button
@@ -57,26 +67,48 @@ export default function AuthControls() {
               {hasAdminToken ? 'Admin mode active' : 'Visitor mode'}
             </p>
             <p className="auth-status-sub">
-              Edits {hasAdminToken ? 'enabled' : 'locked'} - Token stays in this browser session only.
+              {hasAdminToken
+                ? `Logged in as ${username || 'admin'} · edits enabled.`
+                : 'Read-only mode. Sign in to edit.'}
             </p>
           </div>
-          <label className="auth-label">
-            <span>Admin token</span>
-            <input
-              className="auth-input"
-              type="password"
-              placeholder="Paste token"
-              value={draftToken}
-              onChange={event => setDraftToken(event.target.value)}
-              autoComplete="off"
-            />
-          </label>
+
+          {!hasAdminToken && (
+            <>
+              <label className="auth-label">
+                <span>Username</span>
+                <input
+                  className="auth-input"
+                  type="text"
+                  placeholder="Username"
+                  value={draftUsername}
+                  onChange={event => setDraftUsername(event.target.value)}
+                  autoComplete="username"
+                />
+              </label>
+              <label className="auth-label">
+                <span>Password</span>
+                <input
+                  className="auth-input"
+                  type="password"
+                  placeholder="Password"
+                  value={draftPassword}
+                  onChange={event => setDraftPassword(event.target.value)}
+                  autoComplete="current-password"
+                />
+              </label>
+            </>
+          )}
+
+          {status && <p className="auth-status-sub">{status}</p>}
+
           <div className="auth-actions">
-            <button className="auth-button" onClick={handleSave} type="button">
-              {hasAdminToken ? 'Update' : 'Activate'}
-            </button>
-            {hasAdminToken && (
-              <button className="auth-button auth-button-ghost" onClick={handleClear} type="button">
+            {!hasAdminToken ? (
+              <button className="auth-button" onClick={handleLogin} type="button" disabled={submitting}>
+                {submitting ? 'Signing in…' : 'Sign in'}
+              </button>
+            ) : (
+              <button className="auth-button auth-button-ghost" onClick={handleLogout} type="button">
                 Log out
               </button>
             )}
