@@ -9,7 +9,7 @@ const MIN_SECRET_LENGTH = 16;
 const MIN_PASSWORD_LENGTH = 8;
 const SESSION_COOKIE_NAME = 'investing_garden_admin_session';
 const SESSION_TTL_MS = 1000 * 60 * 60 * 12;
-const SESSION_ROTATION_WINDOW_MS = 1000 * 60 * 60;
+const SESSION_ROTATION_THRESHOLD_MS = 1000 * 60 * 60;
 export const SESSION_TTL_SECONDS = Math.floor(SESSION_TTL_MS / 1000);
 const loginWindowMs = 1000 * 60 * 15;
 const maxLoginAttempts = 10;
@@ -331,7 +331,7 @@ export const requireWriteAccess = async () => {
 export const getSessionRotationCookie = (session: Awaited<ReturnType<typeof getAuthorizedSession>>) => {
   if (!session || session.source !== 'cookie') return null;
   if (!session.expiresAt) return null;
-  if (session.expiresAt - Date.now() > SESSION_ROTATION_WINDOW_MS) {
+  if (session.expiresAt - Date.now() > SESSION_ROTATION_THRESHOLD_MS) {
     return null;
   }
   return createSessionCookieValue(session.username, session.role);

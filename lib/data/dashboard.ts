@@ -158,8 +158,8 @@ export const useSortedSnapshots = (snapshots: PortfolioSnapshot[]) =>
   useMemo(() => {
     const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
     if (!sorted.length) return [];
-    const today = new Date();
-    const lastRecorded = new Date(sorted[sorted.length - 1].date + 'T00:00:00');
+    const today = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+    const lastRecorded = new Date(`${sorted[sorted.length - 1].date}T00:00:00Z`);
     if (lastRecorded < today) {
       const filler: PortfolioSnapshot[] = [];
       const lastValue = sorted[sorted.length - 1].value;

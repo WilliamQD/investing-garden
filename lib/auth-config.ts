@@ -65,8 +65,7 @@ export const authOptions: NextAuthOptions = {
               profile.sub ??
               profile.id ??
               profile.user_id ??
-              profile.uid ??
-              profile.email;
+              profile.uid;
             if (!identifier) {
               throw new Error('OIDC profile is missing a stable subject identifier.');
             }
