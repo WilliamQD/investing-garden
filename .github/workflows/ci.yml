@@ -9,12 +9,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npm run migrations:check
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run test
+          cache: pnpm
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - run: pnpm run migrations:check
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+
