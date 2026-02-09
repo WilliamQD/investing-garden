@@ -269,14 +269,22 @@ class Storage {
       const journalCount = await client.query('SELECT COUNT(*) FROM journal_entries');
       const learningCount = await client.query('SELECT COUNT(*) FROM learning_entries');
       const resourceCount = await client.query('SELECT COUNT(*) FROM resource_entries');
+      const journalTotal = Number(journalCount.rows[0]?.count ?? 0);
+      const learningTotal = Number(learningCount.rows[0]?.count ?? 0);
+      const resourceTotal = Number(resourceCount.rows[0]?.count ?? 0);
       if (
-        Number(journalCount.rows[0]?.count ?? 0) !== payload.journal.length ||
-        Number(learningCount.rows[0]?.count ?? 0) !== payload.learning.length ||
-        Number(resourceCount.rows[0]?.count ?? 0) !== payload.resources.length
+        journalTotal !== payload.journal.length ||
+        learningTotal !== payload.learning.length ||
+        resourceTotal !== payload.resources.length
       ) {
         throw new Error('Backup restore integrity check failed.');
       }
       await client.query('COMMIT');
+      return {
+        journalCount: journalTotal,
+        learningCount: learningTotal,
+        resourceCount: resourceTotal,
+      };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

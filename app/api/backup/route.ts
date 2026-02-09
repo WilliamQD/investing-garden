@@ -251,16 +251,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    await storage.replaceAllInTransaction(normalized.data);
+    const counts = await storage.replaceAllInTransaction(normalized.data);
     logInfo('backup_restore_completed', {
-      journalCount: normalized.data.journal.length,
-      learningCount: normalized.data.learning.length,
-      resourceCount: normalized.data.resources.length,
+      journalCount: counts.journalCount,
+      learningCount: counts.learningCount,
+      resourceCount: counts.resourceCount,
     });
     await logAuditEvent('backup_restored', session, {
-      journalCount: normalized.data.journal.length,
-      learningCount: normalized.data.learning.length,
-      resourceCount: normalized.data.resources.length,
+      journalCount: counts.journalCount,
+      learningCount: counts.learningCount,
+      resourceCount: counts.resourceCount,
     });
     return NextResponse.json({ success: true });
   } catch (error) {

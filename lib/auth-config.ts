@@ -61,16 +61,17 @@ export const authOptions: NextAuthOptions = {
           issuer,
           authorization: { params: { scope: 'openid profile email' } },
           profile(profile: Record<string, unknown>) {
+            const identifier =
+              profile.sub ??
+              profile.id ??
+              profile.user_id ??
+              profile.uid ??
+              profile.email;
+            if (!identifier) {
+              throw new Error('OIDC profile is missing a stable subject identifier.');
+            }
             return {
-              id:
-                String(
-                  profile.sub ??
-                    profile.id ??
-                    profile.user_id ??
-                    profile.uid ??
-                    profile.email ??
-                    'oidc-user'
-                ),
+              id: String(identifier),
               name:
                 String(
                   profile.name ??

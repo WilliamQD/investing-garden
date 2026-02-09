@@ -36,6 +36,7 @@ export default function HoldingsSection({
   const [bulkStatus, setBulkStatus] = useState('');
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
   const [holdingsQuery, setHoldingsQuery] = useState('');
+  const bulkPlaceholder = `ticker,label\nAAPL, Core position\nMSFT\nNVDA, Momentum\n(limit ${holdingsImport.MAX_BULK_HOLDINGS})`;
 
   const bulkPreview = useMemo(() => holdingsImport.parseHoldingsCsv(bulkText), [bulkText]);
   const filteredHoldings = useMemo(() => {
@@ -231,7 +232,7 @@ export default function HoldingsSection({
                     setBulkText(event.target.value);
                     if (bulkStatus) setBulkStatus('');
                   }}
-                  placeholder={`ticker,label\nAAPL, Core position\nMSFT\nNVDA, Momentum\n(limit ${holdingsImport.MAX_BULK_HOLDINGS})`}
+                  placeholder={bulkPlaceholder}
                   rows={5}
                 />
               </label>
