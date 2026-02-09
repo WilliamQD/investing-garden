@@ -4,10 +4,13 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies, headers } from 'next/headers';
 
 const MIN_SECRET_LENGTH = 16;
+const MIN_PASSWORD_LENGTH = 8;
 const SESSION_COOKIE_NAME = 'investing_garden_admin_session';
 const SESSION_TTL_MS = 1000 * 60 * 60 * 12;
+export const SESSION_TTL_SECONDS = Math.floor(SESSION_TTL_MS / 1000);
 const loginWindowMs = 1000 * 60 * 15;
 const maxLoginAttempts = 10;
+const MAX_LOGIN_ATTEMPTS_MAP_SIZE = 1000;
 
 const loginAttempts = new Map<string, { count: number; firstAttemptAt: number }>();
 
@@ -27,6 +30,10 @@ const normalizeCredential = (credential: unknown): AdminCredential | null => {
     ? (credential as AdminCredential).password
     : '';
   if (!username || !password) return null;
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    console.warn(`Admin credential for "${username}" has password shorter than ${MIN_PASSWORD_LENGTH} characters; skipping.`);
+    return null;
+  }
   return { username, password };
 };
 
@@ -46,6 +53,10 @@ const parseCredentialList = (): AdminCredential[] => {
 
   const fallbackToken = process.env.ADMIN_TOKEN ?? '';
   if (!fallbackToken) return [];
+  if (fallbackToken.length < MIN_PASSWORD_LENGTH) {
+    console.warn(`ADMIN_TOKEN is shorter than ${MIN_PASSWORD_LENGTH} characters; write actions disabled.`);
+    return [];
+  }
   return [{ username: 'admin', password: fallbackToken }];
 };
 
@@ -93,16 +104,87 @@ const parseSessionCookie = (value: string) => {
   return { username, expiresAt };
 };
 
+const validateIpAddress = (ip: string): string | null => {
+  // Basic IPv4 validation (also handle IPv6 later if needed)
+  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+  const ipv6Regex = /^([0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}$/i;
+  
+  if (!ip || ip === 'unknown') return null;
+  
+  // Limit length to prevent abuse
+  if (ip.length > 45) return null; // Max IPv6 length is 45
+  
+  if (ipv4Regex.test(ip)) {
+    // Validate IPv4 octets are 0-255
+    const octets = ip.split('.');
+    if (octets.every(octet => {
+      const num = parseInt(octet, 10);
+      return num >= 0 && num <= 255;
+    })) {
+      return ip;
+    }
+  }
+  
+  if (ipv6Regex.test(ip)) {
+    return ip;
+  }
+  
+  return null;
+};
+
+const evictOldLoginAttempts = () => {
+  if (loginAttempts.size <= MAX_LOGIN_ATTEMPTS_MAP_SIZE) return;
+  
+  const now = Date.now();
+  const keysToDelete: string[] = [];
+  
+  for (const [key, attempt] of loginAttempts.entries()) {
+    if (now - attempt.firstAttemptAt > loginWindowMs) {
+      keysToDelete.push(key);
+    }
+  }
+  
+  for (const key of keysToDelete) {
+    loginAttempts.delete(key);
+  }
+  
+  // If still too large, delete oldest entries
+  if (loginAttempts.size > MAX_LOGIN_ATTEMPTS_MAP_SIZE) {
+    const entries = Array.from(loginAttempts.entries())
+      .sort((a, b) => a[1].firstAttemptAt - b[1].firstAttemptAt);
+    const toRemove = entries.slice(0, loginAttempts.size - MAX_LOGIN_ATTEMPTS_MAP_SIZE);
+    for (const [key] of toRemove) {
+      loginAttempts.delete(key);
+    }
+  }
+};
+
 const getRequestIp = async () => {
   const headerList = await headers();
-  const forwarded = headerList.get('x-forwarded-for');
-  if (forwarded) {
-    return forwarded.split(',')[0]?.trim() || 'unknown';
+  
+  // Only trust forwarded headers in production or if explicitly enabled
+  const trustProxy = process.env.TRUST_PROXY === 'true' || process.env.NODE_ENV === 'production';
+  
+  if (trustProxy) {
+    const forwarded = headerList.get('x-forwarded-for');
+    if (forwarded) {
+      const firstIp = forwarded.split(',')[0]?.trim() || '';
+      const validated = validateIpAddress(firstIp);
+      if (validated) return validated;
+    }
+    
+    const realIp = headerList.get('x-real-ip');
+    if (realIp) {
+      const validated = validateIpAddress(realIp.trim());
+      if (validated) return validated;
+    }
   }
-  return headerList.get('x-real-ip') || 'unknown';
+  
+  return 'unknown';
 };
 
 export const isLoginRateLimited = async () => {
+  evictOldLoginAttempts();
   const ip = await getRequestIp();
   const attempt = loginAttempts.get(ip);
   if (!attempt) return false;
@@ -114,6 +196,7 @@ export const isLoginRateLimited = async () => {
 };
 
 export const registerFailedLogin = async () => {
+  evictOldLoginAttempts();
   const ip = await getRequestIp();
   const now = Date.now();
   const attempt = loginAttempts.get(ip);

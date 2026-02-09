@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --test lib/holdings-import.test.js lib/portfolio-metrics.test.js"
+    "test": "node --test \"lib/**/*.test.js\""
   },
   "dependencies": {
     "@vercel/postgres": "^0.10.0",

@@ -19,7 +19,7 @@ export default function KnowledgeSection() {
   const [selectedTag, setSelectedTag] = useState('');
   const [selectedKind, setSelectedKind] = useState('');
   const [authMessage, setAuthMessage] = useState('');
-  const { authHeaders, hasAdminToken } = useAdmin();
+  const { hasAdminToken } = useAdmin();
 
   useEffect(() => {
     fetchEntries();
@@ -61,7 +61,7 @@ export default function KnowledgeSection() {
       if (editingEntry) {
         const response = await fetch(`/api/${targetType}/${editingEntry.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload.data),
           credentials: 'include',
         });
@@ -74,7 +74,7 @@ export default function KnowledgeSection() {
       } else {
         const response = await fetch(`/api/${payload.entryType}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload.data),
           credentials: 'include',
         });
@@ -107,7 +107,6 @@ export default function KnowledgeSection() {
       }
       const response = await fetch(`/api/${entry.entryType}/${entry.id}`, {
         method: 'DELETE',
-        headers: authHeaders,
         credentials: 'include',
       });
       if (response.status === 401) {

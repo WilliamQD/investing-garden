@@ -6,6 +6,7 @@ import {
   getSessionCookieName,
   isLoginRateLimited,
   registerFailedLogin,
+  SESSION_TTL_SECONDS,
   verifyCredentials,
 } from '@/lib/auth';
 
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 60 * 60 * 12,
+    maxAge: SESSION_TTL_SECONDS,
   });
   return response;
 }
