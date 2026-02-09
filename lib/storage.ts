@@ -3,6 +3,8 @@ import 'server-only';
 import { sql } from '@vercel/postgres';
 import { randomUUID } from 'crypto';
 
+import { ensureMigrations } from '@/lib/migrations';
+
 export type EntryType = 'journal' | 'learning' | 'resources';
 
 export interface Entry {
@@ -21,8 +23,6 @@ export interface Entry {
   updatedAt: string;
 }
 
-let initialized: Promise<void> | null = null;
-
 const parseTags = (value: unknown): string[] | undefined => {
   if (!value) return undefined;
   if (Array.isArray(value)) return value as string[];
@@ -35,59 +35,46 @@ const parseTags = (value: unknown): string[] | undefined => {
 };
 
 async function ensureTables() {
-  if (!initialized) {
-    initialized = (async () => {
-      await sql`
-        CREATE TABLE IF NOT EXISTS journal_entries (
-          id text PRIMARY KEY,
-          title text NOT NULL,
-          content text NOT NULL,
-          outcome text,
-          emotion text,
-          tags text,
-          ticker text,
-          created_at timestamptz NOT NULL,
-          updated_at timestamptz NOT NULL
-        )
-      `;
-      await sql`
-        CREATE TABLE IF NOT EXISTS learning_entries (
-          id text PRIMARY KEY,
-          title text NOT NULL,
-          content text NOT NULL,
-          goal text,
-          next_step text,
-          created_at timestamptz NOT NULL,
-          updated_at timestamptz NOT NULL
-        )
-      `;
-      await sql`
-        CREATE TABLE IF NOT EXISTS resource_entries (
-          id text PRIMARY KEY,
-          title text NOT NULL,
-          content text NOT NULL,
-          url text NOT NULL,
-          source_type text,
-          tags text,
-          created_at timestamptz NOT NULL,
-          updated_at timestamptz NOT NULL
-        )
-      `;
-      await sql`
-        CREATE INDEX IF NOT EXISTS journal_entries_created_at_idx
-        ON journal_entries (created_at DESC)
-      `;
-      await sql`
-        CREATE INDEX IF NOT EXISTS learning_entries_created_at_idx
-        ON learning_entries (created_at DESC)
-      `;
-      await sql`
-        CREATE INDEX IF NOT EXISTS resource_entries_created_at_idx
-        ON resource_entries (created_at DESC)
-      `;
-    })();
+  await ensureMigrations();
+}
+
+type SqlValue = string | number | boolean | null | undefined;
+type SqlTag = (strings: TemplateStringsArray, ...values: SqlValue[]) => Promise<unknown>;
+
+async function replaceAllEntries(db: SqlTag, type: EntryType, entries: Entry[]): Promise<void> {
+  if (type === 'journal') {
+    await db`DELETE FROM journal_entries`;
+  } else if (type === 'learning') {
+    await db`DELETE FROM learning_entries`;
+  } else {
+    await db`DELETE FROM resource_entries`;
   }
-  await initialized;
+  for (const entry of entries) {
+    const trimmedId = entry.id?.trim();
+    if (entry.id && !trimmedId) {
+      console.warn('Backup entry missing id; generating a new one.');
+    }
+    const entryId = trimmedId ? trimmedId : randomUUID();
+    const createdAt = entry.createdAt || new Date().toISOString();
+    const updatedAt = entry.updatedAt || createdAt;
+
+    if (type === 'journal') {
+      await db`
+        INSERT INTO journal_entries (id, title, content, outcome, emotion, tags, ticker, created_at, updated_at)
+        VALUES (${entryId}, ${entry.title}, ${entry.content}, ${entry.outcome ?? null}, ${entry.emotion ?? null}, ${entry.tags ? JSON.stringify(entry.tags) : null}, ${entry.ticker ?? null}, ${createdAt}, ${updatedAt})
+      `;
+    } else if (type === 'learning') {
+      await db`
+        INSERT INTO learning_entries (id, title, content, goal, next_step, created_at, updated_at)
+        VALUES (${entryId}, ${entry.title}, ${entry.content}, ${entry.goal ?? null}, ${entry.nextStep ?? null}, ${createdAt}, ${updatedAt})
+      `;
+    } else {
+      await db`
+        INSERT INTO resource_entries (id, title, content, url, source_type, tags, created_at, updated_at)
+        VALUES (${entryId}, ${entry.title}, ${entry.content}, ${entry.url ?? ''}, ${entry.sourceType ?? null}, ${entry.tags ? JSON.stringify(entry.tags) : null}, ${createdAt}, ${updatedAt})
+      `;
+    }
+  }
 }
 
 function mapRowToEntry(type: EntryType, row: Record<string, unknown>): Entry {
@@ -267,38 +254,34 @@ class Storage {
 
   async replaceAll(type: EntryType, entries: Entry[]): Promise<void> {
     await ensureTables();
-    if (type === 'journal') {
-      await sql`DELETE FROM journal_entries`;
-    } else if (type === 'learning') {
-      await sql`DELETE FROM learning_entries`;
-    } else {
-      await sql`DELETE FROM resource_entries`;
-    }
-    for (const entry of entries) {
-      const trimmedId = entry.id?.trim();
-      if (entry.id && !trimmedId) {
-        console.warn('Backup entry missing id; generating a new one.');
-      }
-      const entryId = trimmedId ? trimmedId : randomUUID();
-      const createdAt = entry.createdAt || new Date().toISOString();
-      const updatedAt = entry.updatedAt || createdAt;
+    await replaceAllEntries(sql, type, entries);
+  }
 
-      if (type === 'journal') {
-        await sql`
-          INSERT INTO journal_entries (id, title, content, outcome, emotion, tags, ticker, created_at, updated_at)
-          VALUES (${entryId}, ${entry.title}, ${entry.content}, ${entry.outcome ?? null}, ${entry.emotion ?? null}, ${entry.tags ? JSON.stringify(entry.tags) : null}, ${entry.ticker ?? null}, ${createdAt}, ${updatedAt})
-        `;
-      } else if (type === 'learning') {
-        await sql`
-          INSERT INTO learning_entries (id, title, content, goal, next_step, created_at, updated_at)
-          VALUES (${entryId}, ${entry.title}, ${entry.content}, ${entry.goal ?? null}, ${entry.nextStep ?? null}, ${createdAt}, ${updatedAt})
-        `;
-      } else {
-        await sql`
-          INSERT INTO resource_entries (id, title, content, url, source_type, tags, created_at, updated_at)
-          VALUES (${entryId}, ${entry.title}, ${entry.content}, ${entry.url ?? ''}, ${entry.sourceType ?? null}, ${entry.tags ? JSON.stringify(entry.tags) : null}, ${createdAt}, ${updatedAt})
-        `;
+  async replaceAllInTransaction(payload: { journal: Entry[]; learning: Entry[]; resources: Entry[] }) {
+    await ensureTables();
+    const client = await sql.connect();
+    try {
+      const clientSql = client.sql.bind(client);
+      await client.query('BEGIN');
+      await replaceAllEntries(clientSql, 'journal', payload.journal);
+      await replaceAllEntries(clientSql, 'learning', payload.learning);
+      await replaceAllEntries(clientSql, 'resources', payload.resources);
+      const journalCount = await client.query('SELECT COUNT(*) FROM journal_entries');
+      const learningCount = await client.query('SELECT COUNT(*) FROM learning_entries');
+      const resourceCount = await client.query('SELECT COUNT(*) FROM resource_entries');
+      if (
+        Number(journalCount.rows[0]?.count ?? 0) !== payload.journal.length ||
+        Number(learningCount.rows[0]?.count ?? 0) !== payload.learning.length ||
+        Number(resourceCount.rows[0]?.count ?? 0) !== payload.resources.length
+      ) {
+        throw new Error('Backup restore integrity check failed.');
       }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
   }
 }

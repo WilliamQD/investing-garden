@@ -3,10 +3,13 @@ import 'server-only';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies, headers } from 'next/headers';
 
+import { getOidcSession } from '@/lib/auth-oidc';
+
 const MIN_SECRET_LENGTH = 16;
 const MIN_PASSWORD_LENGTH = 8;
 const SESSION_COOKIE_NAME = 'investing_garden_admin_session';
 const SESSION_TTL_MS = 1000 * 60 * 60 * 12;
+const SESSION_ROTATION_WINDOW_MS = 1000 * 60 * 60;
 export const SESSION_TTL_SECONDS = Math.floor(SESSION_TTL_MS / 1000);
 const loginWindowMs = 1000 * 60 * 15;
 const maxLoginAttempts = 10;
@@ -14,9 +17,25 @@ const MAX_LOGIN_ATTEMPTS_MAP_SIZE = 1000;
 
 const loginAttempts = new Map<string, { count: number; firstAttemptAt: number }>();
 
+type Role = 'admin' | 'editor' | 'viewer';
+
 type AdminCredential = {
   username: string;
   password: string;
+  role: Role;
+};
+
+const ROLE_PERMISSIONS: Record<Role, { canWrite: boolean }> = {
+  admin: { canWrite: true },
+  editor: { canWrite: true },
+  viewer: { canWrite: false },
+};
+
+const normalizeRole = (value: unknown, fallback: Role = 'viewer'): Role => {
+  if (value === 'admin' || value === 'editor' || value === 'viewer') {
+    return value;
+  }
+  return fallback;
 };
 
 const normalizeCredential = (credential: unknown): AdminCredential | null => {
@@ -34,7 +53,8 @@ const normalizeCredential = (credential: unknown): AdminCredential | null => {
     console.warn(`Admin credential for "${username}" has password shorter than ${MIN_PASSWORD_LENGTH} characters; skipping.`);
     return null;
   }
-  return { username, password };
+  const role = normalizeRole((credential as AdminCredential).role, 'admin');
+  return { username, password, role };
 };
 
 const parseCredentialList = (): AdminCredential[] => {
@@ -57,7 +77,7 @@ const parseCredentialList = (): AdminCredential[] => {
     console.warn(`ADMIN_TOKEN is shorter than ${MIN_PASSWORD_LENGTH} characters; write actions disabled.`);
     return [];
   }
-  return [{ username: 'admin', password: fallbackToken }];
+  return [{ username: 'admin', password: fallbackToken, role: 'admin' }];
 };
 
 const adminCredentials = parseCredentialList();
@@ -82,8 +102,8 @@ const safeEquals = (left: string, right: string) => {
   return timingSafeEqual(leftBuffer, rightBuffer);
 };
 
-const toSessionCookie = (username: string, expiresAt: number) => {
-  const payload = `${username}:${expiresAt}`;
+const toSessionCookie = (username: string, role: Role, expiresAt: number) => {
+  const payload = `${username}:${role}:${expiresAt}`;
   const signature = signSession(payload);
   return `${payload}:${signature}`;
 };
@@ -97,11 +117,14 @@ const parseSessionCookie = (value: string) => {
   const expectedSignature = signSession(payload);
   if (!safeEquals(signature, expectedSignature)) return null;
 
-  const [username, expiresAtText] = payload.split(':');
-  const expiresAt = Number(expiresAtText);
+  const parts = payload.split(':');
+  if (parts.length < 2 || parts.length > 3) return null;
+  const [username, roleOrExpires, expiresAtText] = parts;
+  const role = parts.length === 3 ? normalizeRole(roleOrExpires) : 'admin';
+  const expiresAt = Number(parts.length === 3 ? expiresAtText : roleOrExpires);
   if (!username || !Number.isFinite(expiresAt)) return null;
   if (expiresAt < Date.now()) return null;
-  return { username, expiresAt };
+  return { username, role, expiresAt };
 };
 
 const validateIpAddress = (ip: string): string | null => {
@@ -163,7 +186,7 @@ const evictOldLoginAttempts = () => {
   }
 };
 
-const getRequestIp = async () => {
+export const getRequestIp = async () => {
   const headerList = await headers();
   
   // Only trust forwarded headers in production or if explicitly enabled
@@ -219,18 +242,20 @@ export const clearLoginAttempts = async () => {
 
 export const verifyCredentials = (username: string, password: string) => {
   const normalizedUsername = username.trim();
-  if (!normalizedUsername || !password) return false;
-  return adminCredentials.some(credential => {
+  if (!normalizedUsername || !password) return null;
+  const credential = adminCredentials.find(credential => {
     if (!safeEquals(credential.username, normalizedUsername)) {
       return false;
     }
     return safeEquals(credential.password, password);
   });
+  if (!credential) return null;
+  return { username: credential.username, role: credential.role };
 };
 
-export const createSessionCookieValue = (username: string) => {
+export const createSessionCookieValue = (username: string, role: Role) => {
   if (!canIssueSession) return null;
-  return toSessionCookie(username.trim(), Date.now() + SESSION_TTL_MS);
+  return toSessionCookie(username.trim(), normalizeRole(role, 'viewer'), Date.now() + SESSION_TTL_MS);
 };
 
 export const clearSessionCookie = async () => {
@@ -251,17 +276,65 @@ const getHeaderToken = async () => {
   return headerList.get('x-admin-token')?.trim() ?? '';
 };
 
+const getRolePermissions = (role: Role) => ROLE_PERMISSIONS[normalizeRole(role)];
+
 export const getAuthorizedSession = async () => {
+  const oidcSession = await getOidcSession();
+  if (oidcSession) {
+    const role = normalizeRole(oidcSession.role);
+    const permissions = getRolePermissions(role);
+    return {
+      isAuthenticated: true,
+      username: oidcSession.username,
+      role,
+      canWrite: permissions.canWrite,
+      expiresAt: null,
+      source: 'oidc' as const,
+    };
+  }
   const cookieSession = await getCookieSession();
   if (cookieSession) {
-    return { isAdmin: true, username: cookieSession.username };
+    const permissions = getRolePermissions(cookieSession.role);
+    return {
+      isAuthenticated: true,
+      username: cookieSession.username,
+      role: cookieSession.role,
+      canWrite: permissions.canWrite,
+      expiresAt: cookieSession.expiresAt,
+      source: 'cookie' as const,
+    };
   }
 
   const token = await getHeaderToken();
   if (!token) return null;
-  const matchesTokenCredential = adminCredentials.some(credential => safeEquals(credential.password, token));
+  const matchesTokenCredential = adminCredentials.find(credential =>
+    safeEquals(credential.password, token)
+  );
   if (!matchesTokenCredential) return null;
-  return { isAdmin: true, username: 'header-admin' };
+  const permissions = getRolePermissions(matchesTokenCredential.role);
+  return {
+    isAuthenticated: true,
+    username: matchesTokenCredential.username || 'header-admin',
+    role: matchesTokenCredential.role,
+    canWrite: permissions.canWrite,
+    expiresAt: null,
+    source: 'header' as const,
+  };
+};
+
+export const requireWriteAccess = async () => {
+  const session = await getAuthorizedSession();
+  if (!session?.canWrite) return null;
+  return session;
+};
+
+export const getSessionRotationCookie = (session: Awaited<ReturnType<typeof getAuthorizedSession>>) => {
+  if (!session || session.source !== 'cookie') return null;
+  if (!session.expiresAt) return null;
+  if (session.expiresAt - Date.now() > SESSION_ROTATION_WINDOW_MS) {
+    return null;
+  }
+  return createSessionCookieValue(session.username, session.role);
 };
 
 export const getSessionCookieName = () => SESSION_COOKIE_NAME;

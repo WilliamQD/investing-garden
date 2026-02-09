@@ -2,9 +2,11 @@ import JSZip from 'jszip';
 import { NextResponse } from 'next/server';
 
 import { getAuthorizedSession } from '@/lib/auth';
+import { logAuditEvent } from '@/lib/audit';
 import type { Entry } from '@/lib/storage';
 import { storage } from '@/lib/storage';
-import { logInfo } from '@/lib/logger';
+import { logError, logInfo } from '@/lib/logger';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { normalizeBackupEntry } from '@/lib/validation';
 
 type BackupPayload = {
@@ -100,6 +102,21 @@ export async function GET(request: Request) {
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  if (!session.canWrite) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  const rateLimit = await checkRateLimit('backup:export', { limit: 10, windowMs: 60_000 });
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many backup exports. Try again shortly.' },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(rateLimit.retryAfter ?? 60),
+        },
+      }
+    );
+  }
 
   const journal = await storage.getAll('journal');
   const learning = await storage.getAll('learning');
@@ -118,6 +135,7 @@ export async function GET(request: Request) {
       content.byteOffset,
       content.byteOffset + content.byteLength
     ) as ArrayBuffer;
+    await logAuditEvent('backup_exported', session, { format: 'zip' });
     return new NextResponse(arrayBuffer, {
       headers: {
         'Content-Type': 'application/zip',
@@ -127,6 +145,7 @@ export async function GET(request: Request) {
     });
   }
 
+  await logAuditEvent('backup_exported', session, { format: format ?? 'json' });
   return new NextResponse(JSON.stringify(payload, null, 2), {
     headers: {
       'Content-Type': 'application/json',
@@ -140,6 +159,21 @@ export async function POST(request: Request) {
   const session = await getAuthorizedSession();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!session.canWrite) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  const rateLimit = await checkRateLimit('backup:restore', { limit: 5, windowMs: 60_000 });
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many restore attempts. Try again shortly.' },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(rateLimit.retryAfter ?? 60),
+        },
+      }
+    );
   }
 
   const contentType = request.headers.get('content-type') || '';
@@ -216,10 +250,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: normalized.error ?? INVALID_FORMAT_MESSAGE }, { status: 400 });
   }
 
-  await storage.replaceAll('journal', normalized.data.journal);
-  await storage.replaceAll('learning', normalized.data.learning);
-  await storage.replaceAll('resources', normalized.data.resources);
-
-  logInfo('backup_restore_completed');
-  return NextResponse.json({ success: true });
+  try {
+    await storage.replaceAllInTransaction(normalized.data);
+    logInfo('backup_restore_completed', {
+      journalCount: normalized.data.journal.length,
+      learningCount: normalized.data.learning.length,
+      resourceCount: normalized.data.resources.length,
+    });
+    await logAuditEvent('backup_restored', session, {
+      journalCount: normalized.data.journal.length,
+      learningCount: normalized.data.learning.length,
+      resourceCount: normalized.data.resources.length,
+    });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    logError('backup_restore_failed', error);
+    return NextResponse.json(
+      { error: 'Backup restore failed. Please review the server logs.' },
+      { status: 500 }
+    );
+  }
 }

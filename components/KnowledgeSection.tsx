@@ -1,95 +1,66 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useAdmin } from '@/lib/admin-client';
 import type { Entry } from '@/lib/storage';
+import {
+  ApiError,
+} from '@/lib/data/client';
+import {
+  createKnowledgeEntry,
+  deleteKnowledgeEntry,
+  updateKnowledgeEntry,
+  useKnowledgeEntries,
+  type KnowledgeEntry,
+} from '@/lib/data/knowledge';
 
 import EntryCard from './EntryCard';
 import KnowledgeModal from './KnowledgeModal';
 
-type KnowledgeEntry = Entry & { entryType: 'learning' | 'resources' };
-
 export default function KnowledgeSection() {
-  const [entries, setEntries] = useState<KnowledgeEntry[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<KnowledgeEntry | undefined>();
-  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
   const [selectedKind, setSelectedKind] = useState('');
   const [authMessage, setAuthMessage] = useState('');
-  const { hasAdminToken } = useAdmin();
-
-  useEffect(() => {
-    fetchEntries();
-  }, []);
-
-  const fetchEntries = async () => {
-    try {
-      const [learningResponse, resourceResponse] = await Promise.all([
-        fetch('/api/learning'),
-        fetch('/api/resources'),
-      ]);
-      const [learningData, resourceData] = await Promise.all([
-        learningResponse.json(),
-        resourceResponse.json(),
-      ]);
-      const merged = [
-        ...(Array.isArray(learningData)
-          ? learningData.map((entry: Entry) => ({ ...entry, entryType: 'learning' as const }))
-          : []),
-        ...(Array.isArray(resourceData)
-          ? resourceData.map((entry: Entry) => ({ ...entry, entryType: 'resources' as const }))
-          : []),
-      ].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      setEntries(merged);
-    } catch (error) {
-      console.error('Error fetching knowledge entries:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { canWrite } = useAdmin();
+  const { entries, isLoading, mutate } = useKnowledgeEntries();
 
   const handleSave = async (payload: { entryType: KnowledgeEntry['entryType']; data: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'> }) => {
     try {
-      if (!hasAdminToken) {
-        setAuthMessage('Enter the admin token to save changes.');
-        return;
-      }
       const targetType = editingEntry?.entryType ?? payload.entryType;
       if (editingEntry) {
-        const response = await fetch(`/api/${targetType}/${editingEntry.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload.data),
-          credentials: 'include',
-        });
-        if (response.status === 401) {
+        if (!canWrite) {
           setAuthMessage('Enter the admin token to update entries.');
           return;
         }
-        const updatedEntry = await response.json();
-        setEntries(entries.map(entry => entry.id === editingEntry.id ? { ...updatedEntry, entryType: targetType } : entry));
+        const updatedEntry = await updateKnowledgeEntry(targetType, editingEntry.id, payload.data);
+        await mutate(current =>
+          (current ?? []).map(entry =>
+            entry.id === editingEntry.id ? { ...updatedEntry, entryType: targetType } : entry
+          ),
+          { revalidate: false }
+        );
       } else {
-        const response = await fetch(`/api/${payload.entryType}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload.data),
-          credentials: 'include',
-        });
-        if (response.status === 401) {
+        if (!canWrite) {
           setAuthMessage('Enter the admin token to add entries.');
           return;
         }
-        const newEntry = await response.json();
-        setEntries([{ ...newEntry, entryType: payload.entryType }, ...entries]);
+        const newEntry = await createKnowledgeEntry(payload.entryType, payload.data);
+        await mutate(current => [{ ...newEntry, entryType: payload.entryType }, ...(current ?? [])], {
+          revalidate: false,
+        });
       }
       setIsModalOpen(false);
       setEditingEntry(undefined);
       setAuthMessage('');
     } catch (error) {
       console.error('Error saving knowledge entry:', error);
+      if (error instanceof ApiError) {
+        setAuthMessage(error.message);
+      }
     }
   };
 
@@ -101,27 +72,25 @@ export default function KnowledgeSection() {
   const handleDelete = async (entry: KnowledgeEntry) => {
     if (!confirm('Are you sure you want to delete this entry?')) return;
     try {
-      if (!hasAdminToken) {
+      if (!canWrite) {
         setAuthMessage('Enter the admin token to delete entries.');
         return;
       }
-      const response = await fetch(`/api/${entry.entryType}/${entry.id}`, {
-        method: 'DELETE',
-        credentials: 'include',
+      await deleteKnowledgeEntry(entry.entryType, entry.id);
+      await mutate(current => (current ?? []).filter(item => item.id !== entry.id), {
+        revalidate: false,
       });
-      if (response.status === 401) {
-        setAuthMessage('Enter the admin token to delete entries.');
-        return;
-      }
-      setEntries(entries.filter(item => item.id !== entry.id));
       setAuthMessage('');
     } catch (error) {
       console.error('Error deleting knowledge entry:', error);
+      if (error instanceof ApiError) {
+        setAuthMessage(error.message);
+      }
     }
   };
 
   const handleAddNew = () => {
-    if (!hasAdminToken) {
+    if (!canWrite) {
       setAuthMessage('Enter the admin token to add new entries.');
       return;
     }
@@ -129,9 +98,7 @@ export default function KnowledgeSection() {
     setIsModalOpen(true);
   };
 
-  const allTags = Array.from(
-    new Set(entries.flatMap(entry => entry.tags || []))
-  ).sort();
+  const allTags = useMemo(() => Array.from(new Set(entries.flatMap(entry => entry.tags || []))).sort(), [entries]);
 
   const searchLower = searchText.toLowerCase();
   const filteredEntries = entries.filter(entry => {
@@ -153,11 +120,11 @@ export default function KnowledgeSection() {
           <p>One place for study notes, market reading, and external resources.</p>
           <p className="panel-sub">Capture learnings, tag sources, and revisit what matters.</p>
         </div>
-        <button className="add-button" onClick={handleAddNew} disabled={!hasAdminToken}>
+        <button className="add-button" onClick={handleAddNew} disabled={!canWrite}>
           + Add Knowledge Item
         </button>
       </div>
-      {!hasAdminToken && (
+      {!canWrite && (
         <div className="auth-banner">
           Enter the admin token to add, edit, or delete entries. Reading is always available.
         </div>
@@ -202,7 +169,7 @@ export default function KnowledgeSection() {
       </div>
 
       <div className="card-grid card-grid-knowledge">
-        {loading ? (
+        {isLoading ? (
           <p className="loading-message">Loading...</p>
         ) : filteredEntries.length === 0 ? (
           <p className="empty-message">
@@ -218,7 +185,7 @@ export default function KnowledgeSection() {
               onEdit={() => handleEdit(entry)}
               onDelete={() => handleDelete(entry)}
               type={entry.entryType}
-              canEdit={hasAdminToken}
+              canEdit={canWrite}
             />
           ))
         )}
