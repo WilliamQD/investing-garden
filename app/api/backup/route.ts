@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { getAuthorizedSession } from '@/lib/auth';
 import type { Entry } from '@/lib/storage';
 import { storage } from '@/lib/storage';
+import { logInfo } from '@/lib/logger';
 import { normalizeBackupEntry } from '@/lib/validation';
 
 type BackupPayload = {
@@ -219,5 +220,6 @@ export async function POST(request: Request) {
   await storage.replaceAll('learning', normalized.data.learning);
   await storage.replaceAll('resources', normalized.data.resources);
 
+  logInfo('backup_restore_completed');
   return NextResponse.json({ success: true });
 }

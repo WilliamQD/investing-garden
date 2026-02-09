@@ -21,7 +21,7 @@ Investing Garden is a clean, industrial workspace for tracking portfolio progres
 - **Styling**: Custom CSS
 - **Backend**: Next.js API Routes
 - **Storage**: Vercel Postgres / Neon
-- **Auth**: Admin token header for write access
+- **Auth**: Credential-based admin sign-in with signed HttpOnly session cookies
 - **Runtime**: Node.js
 
 ## Getting Started
@@ -46,10 +46,13 @@ npm install
 3. Create a `.env.local` file with the required secrets:
 ```bash
 POSTGRES_URL=your_postgres_connection_string
-ADMIN_TOKEN=your_admin_token
+ADMIN_CREDENTIALS=[{"username":"owner","password":"a-very-long-password"}]
+ADMIN_SESSION_SECRET=long_random_secret_at_least_16_chars
 TWELVE_DATA_API_KEY=your_twelve_data_key
 ```
-Generate a long random token (for example, `openssl rand -hex 16` for a 32-character token) to keep write access secure. Tokens must be at least 16 characters long.
+Use `ADMIN_CREDENTIALS` to define approved editor accounts. `ADMIN_SESSION_SECRET` signs secure admin sessions and must be at least 16 characters.
+
+If you still prefer a single-token setup, set `ADMIN_TOKEN` (legacy fallback) and use username `admin`.
 
 Optional tuning:
 ```bash
@@ -75,7 +78,7 @@ npm start
 
 ### Admin access
 
-Click the Visitor/Admin pill in the header, paste the `ADMIN_TOKEN`, and activate admin mode. Admin mode unlocks portfolio snapshot entry, holdings edits, and knowledge/journal CRUD.
+Click the Visitor/Admin pill in the header, enter approved credentials, and sign in. Admin mode unlocks portfolio snapshot entry, holdings edits, and knowledge/journal CRUD.
 
 ### Dashboard workflows
 
@@ -176,3 +179,11 @@ This project is open source and available under the MIT License.
 ## Disclaimer
 
 Nothing on this website is financial advice. This is a personal learning project for documenting an investing journey with a small amount of capital.
+
+## Quality checks
+
+```bash
+npm run lint
+npm run typecheck
+npm run test
+```

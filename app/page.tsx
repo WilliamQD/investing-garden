@@ -50,7 +50,7 @@ export default function Home() {
   const [portfolioError, setPortfolioError] = useState('');
   const [holdingsError, setHoldingsError] = useState('');
   const currentYear = new Date().getFullYear();
-  const { authHeaders, hasAdminToken } = useAdmin();
+  const { hasAdminToken } = useAdmin();
 
   useEffect(() => {
     void loadSettings();
@@ -131,17 +131,17 @@ export default function Home() {
     if (Number.isNaN(valueNum)) return;
     try {
       if (!hasAdminToken) {
-        setStatusMessage('Enter the admin token to save snapshots.');
+        setStatusMessage('Sign in as admin to save snapshots.');
         return;
       }
       const response = await fetch('/api/portfolio/snapshots', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date: newDate, value: valueNum }),
         credentials: 'include',
       });
       if (response.status === 401) {
-        setStatusMessage('Enter the admin token to save snapshots.');
+        setStatusMessage('Sign in as admin to save snapshots.');
         return;
       }
       if (!response.ok) {
@@ -164,17 +164,17 @@ export default function Home() {
     if (!newTicker.trim()) return;
     try {
       if (!hasAdminToken) {
-        setStatusMessage('Enter the admin token to add holdings.');
+        setStatusMessage('Sign in as admin to add holdings.');
         return;
       }
       const response = await fetch('/api/portfolio/holdings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticker: newTicker.trim(), label: newLabel.trim() || undefined }),
         credentials: 'include',
       });
       if (response.status === 401) {
-        setStatusMessage('Enter the admin token to add holdings.');
+        setStatusMessage('Sign in as admin to add holdings.');
         return;
       }
       if (!response.ok) {
@@ -199,7 +199,7 @@ export default function Home() {
   const handleBulkImport = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!hasAdminToken) {
-      setBulkStatus('Enter the admin token to import holdings.');
+      setBulkStatus('Sign in as admin to import holdings.');
       return;
     }
     if (bulkPreview.errors.length) {
@@ -215,12 +215,12 @@ export default function Home() {
       setBulkStatus('');
       const response = await fetch('/api/portfolio/holdings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ holdings: bulkPreview.holdings }),
         credentials: 'include',
       });
       if (response.status === 401) {
-        setBulkStatus('Enter the admin token to import holdings.');
+        setBulkStatus('Sign in as admin to import holdings.');
         return;
       }
       if (!response.ok) {
@@ -257,16 +257,15 @@ export default function Home() {
   const handleRemoveHolding = async (id: string) => {
     try {
       if (!hasAdminToken) {
-        setStatusMessage('Enter the admin token to remove holdings.');
+        setStatusMessage('Sign in as admin to remove holdings.');
         return;
       }
       const response = await fetch(`/api/portfolio/holdings/${id}`, {
         method: 'DELETE',
-        headers: authHeaders,
         credentials: 'include',
       });
       if (response.status === 401) {
-        setStatusMessage('Enter the admin token to remove holdings.');
+        setStatusMessage('Sign in as admin to remove holdings.');
         return;
       }
       if (!response.ok) {
@@ -284,12 +283,12 @@ export default function Home() {
     try {
       const response = await fetch(`/api/portfolio/holdings/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ label }),
         credentials: 'include',
       });
       if (response.status === 401) {
-        setStatusMessage('Enter the admin token to update holding labels.');
+        setStatusMessage('Sign in as admin to update holding labels.');
         throw new Error('Unauthorized');
       }
       if (!response.ok) {
@@ -314,17 +313,17 @@ export default function Home() {
     e.preventDefault();
     try {
       if (!hasAdminToken) {
-        setStatusMessage('Enter the admin token to update overview settings.');
+        setStatusMessage('Sign in as admin to update overview settings.');
         return;
       }
       const response = await fetch('/api/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settingsDraft),
         credentials: 'include',
       });
       if (response.status === 401) {
-        setStatusMessage('Enter the admin token to update overview settings.');
+        setStatusMessage('Sign in as admin to update overview settings.');
         return;
       }
       if (!response.ok) {

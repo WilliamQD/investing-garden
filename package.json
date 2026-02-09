@@ -1,12 +1,14 @@
 {
-  "name": "nextjs-temp",
+  "name": "investing-garden",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test lib/holdings-import.test.js lib/portfolio-metrics.test.js"
   },
   "dependencies": {
     "@vercel/postgres": "^0.10.0",
