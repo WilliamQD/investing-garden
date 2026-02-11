@@ -3,13 +3,13 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, constr
 
 app = FastAPI(title="Investing Garden Signal Engine", version="0.1.0")
 
 
 class SignalRequest(BaseModel):
-    ticker: str = Field(min_length=1, max_length=10)
+    ticker: constr(strip_whitespace=True, min_length=1, max_length=10, regex=r"^[A-Z0-9.-]+$")
     closes: list[float] = Field(min_length=15, max_length=120)
 
 
