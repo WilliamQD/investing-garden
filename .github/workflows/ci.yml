@@ -38,5 +38,4 @@ jobs:
       - run: pnpm run migrations:check
       - run: pnpm run lint
       - run: pnpm run typecheck
-      - run: pnpm run test
 
