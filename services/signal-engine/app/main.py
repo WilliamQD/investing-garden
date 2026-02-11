@@ -10,7 +10,7 @@ app = FastAPI(title="Investing Garden Signal Engine", version="0.1.0")
 
 class SignalRequest(BaseModel):
     ticker: str = Field(min_length=1, max_length=10)
-    closes: list[float] = Field(min_length=14, max_length=120)
+    closes: list[float] = Field(min_length=15, max_length=120)
 
 
 class SignalResponse(BaseModel):
