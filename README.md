@@ -23,6 +23,7 @@ Investing Garden is a clean, industrial workspace for tracking portfolio progres
 - **Storage**: Vercel Postgres / Neon
 - **Auth**: Auth.js OIDC (optional) with credential-based fallback and signed HttpOnly sessions
 - **Runtime**: Node.js
+- **Signal microservice**: FastAPI (Python) for momentum + RSI scoring
 
 ## Getting Started
 
@@ -58,6 +59,7 @@ Optional tuning:
 ```bash
 MARKET_CACHE_TTL_SECONDS=180
 NEXT_PUBLIC_MARKET_CACHE_TTL_MS=180000
+MARKET_SIGNAL_SERVICE_URL=http://signal-engine.default.svc.cluster.local:8000/v1/signals/momentum
 ```
 
 Optional Auth.js (OIDC) configuration:
@@ -183,6 +185,44 @@ All endpoints support JSON payloads:
 ### Market Data
 - `GET /api/market?ticker=NVDA` - Live price lookup
 - `GET /api/market/history?ticker=NVDA` - Recent price candles
+- `GET /api/market/signal?ticker=NVDA` - Momentum signal from the Python microservice
+
+
+## Python Signal Engine Microservice
+
+A good service to add is a **Signal Engine** that computes a fast technical sentiment score from recent prices.
+
+### Why this service
+
+- Isolated compute logic (easy to iterate independently from the Next.js app)
+- Reusable for dashboards, alerts, and future bots
+- Lightweight enough to autoscale independently
+
+### Local service run
+
+```bash
+cd services/signal-engine
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+### Kubernetes deployment
+
+Build and push your image, then deploy:
+
+```bash
+docker build -t ghcr.io/<your-org>/investing-garden-signal-engine:latest services/signal-engine
+docker push ghcr.io/<your-org>/investing-garden-signal-engine:latest
+kubectl apply -f k8s/signal-engine/deployment.yaml
+```
+
+In cluster, the app route can call:
+
+```
+http://signal-engine.default.svc.cluster.local:8000/v1/signals/momentum
+```
 
 ## License
 
