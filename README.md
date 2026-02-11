@@ -59,7 +59,7 @@ Optional tuning:
 ```bash
 MARKET_CACHE_TTL_SECONDS=180
 NEXT_PUBLIC_MARKET_CACHE_TTL_MS=180000
-MARKET_SIGNAL_SERVICE_URL=http://signal-engine.default.svc.cluster.local:8000/v1/signals/momentum
+MARKET_SIGNAL_SERVICE_URL=http://localhost:8000/v1/signals/momentum
 ```
 
 Optional Auth.js (OIDC) configuration:
