@@ -105,14 +105,26 @@ export async function GET(request: Request) {
       )}&interval=${encodeURIComponent(interval)}&outputsize=30&apikey=${apiKey}`,
       { cache: 'no-store' }
     );
-    const data = (await response.json()) as TwelveDataHistoryResponse;
+    let data: TwelveDataHistoryResponse | null = null;
+    let parseError: unknown;
+
+    try {
+      data = (await response.json()) as TwelveDataHistoryResponse;
+    } catch (err) {
+      parseError = err;
+    }
 
     if (!response.ok || data?.status === 'error') {
       if (isRateLimitError(response, data?.message)) {
         const cooldownSeconds = getProviderCooldownSeconds(response);
         providerBackoffUntilMs = Date.now() + cooldownSeconds * 1000;
       }
-      throw new Error(data?.message || 'Failed to fetch history');
+      const message =
+        data?.message ||
+        (!response.ok ? `Failed to fetch history (HTTP ${response.status})` : undefined) ||
+        (parseError instanceof Error ? parseError.message : undefined) ||
+        'Failed to fetch history';
+      throw new Error(message);
     }
 
     const candles: Candle[] = Array.isArray(data?.values) ? data.values : [];
