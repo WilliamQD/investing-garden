@@ -132,7 +132,7 @@ export default function AuthControls() {
                   <button
                     className="auth-button auth-button-ghost"
                     onClick={() => {
-                      window.location.href = '/api/oidc/nextauth/signin';
+                      window.location.href = '/api/oidc/signin';
                     }}
                     type="button"
                   >
