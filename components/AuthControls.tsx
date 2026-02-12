@@ -14,10 +14,20 @@ export default function AuthControls() {
   const [oidcEnabled, setOidcEnabled] = useState(false);
 
   useEffect(() => {
-    fetch('/api/oidc/status')
-      .then(response => response.json())
-      .then(data => setOidcEnabled(Boolean(data?.enabled)))
-      .catch(() => setOidcEnabled(false));
+    const checkOidcStatus = async () => {
+      try {
+        const response = await fetch('/api/oidc/status');
+        if (!response.ok) {
+          setOidcEnabled(false);
+          return;
+        }
+        const data = await response.json();
+        setOidcEnabled(Boolean(data?.enabled));
+      } catch {
+        setOidcEnabled(false);
+      }
+    };
+    void checkOidcStatus();
   }, []);
 
   const handleLogin = async () => {
