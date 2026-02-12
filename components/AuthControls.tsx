@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useAdmin } from '@/lib/admin-client';
 
@@ -11,6 +11,14 @@ export default function AuthControls() {
   const [status, setStatus] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [oidcEnabled, setOidcEnabled] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/oidc/status')
+      .then(response => response.json())
+      .then(data => setOidcEnabled(Boolean(data?.enabled)))
+      .catch(() => setOidcEnabled(false));
+  }, []);
 
   const handleLogin = async () => {
     setSubmitting(true);
@@ -110,15 +118,17 @@ export default function AuthControls() {
                 <button className="auth-button" onClick={handleLogin} type="button" disabled={submitting}>
                   {submitting ? 'Signing in…' : 'Sign in'}
                 </button>
-                <button
-                  className="auth-button auth-button-ghost"
-                  onClick={() => {
-                    window.location.href = '/api/oidc/signin';
-                  }}
-                  type="button"
-                >
-                  Use SSO
-                </button>
+                {oidcEnabled && (
+                  <button
+                    className="auth-button auth-button-ghost"
+                    onClick={() => {
+                      window.location.href = '/api/oidc/nextauth/signin';
+                    }}
+                    type="button"
+                  >
+                    Use SSO
+                  </button>
+                )}
               </>
             ) : (
               <button className="auth-button auth-button-ghost" onClick={handleLogout} type="button">
