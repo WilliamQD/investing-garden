@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { logError } from '@/lib/logger';
 import { normalizeTicker } from '@/lib/validation';
 
 type Candle = {
@@ -7,17 +8,44 @@ type Candle = {
   close: string;
 };
 
+type HistoryPayload = {
+  candles: Candle[];
+  updatedAt: string;
+};
+
+type TwelveDataHistoryResponse = {
+  status?: string;
+  message?: string;
+  values?: Candle[];
+};
+
 const ALLOWED_INTERVALS = new Set(['1day', '1week', '1month']);
-const DEFAULT_CACHE_TTL_SECONDS = 240;
+const DEFAULT_CACHE_TTL_SECONDS = 300;
 const MIN_CACHE_TTL_SECONDS = 60;
 const MAX_CACHE_TTL_SECONDS = 300;
+const PROVIDER_COOLDOWN_SECONDS = 60;
 const cacheTtlSeconds = Number(process.env.MARKET_CACHE_TTL_SECONDS);
 const resolvedCacheSeconds = Number.isFinite(cacheTtlSeconds)
   ? Math.min(Math.max(cacheTtlSeconds, MIN_CACHE_TTL_SECONDS), MAX_CACHE_TTL_SECONDS)
   : DEFAULT_CACHE_TTL_SECONDS;
 const CACHE_TTL_MS = resolvedCacheSeconds * 1000;
 const CACHE_HEADER = `s-maxage=${resolvedCacheSeconds}, stale-while-revalidate=${resolvedCacheSeconds}`;
-const historyCache = new Map<string, { data: { candles: Candle[]; updatedAt: string }; timestamp: number }>();
+const historyCache = new Map<string, { data: HistoryPayload; timestamp: number }>();
+let providerBackoffUntilMs = 0;
+
+const isRateLimitError = (response: Response, message?: string): boolean =>
+  response.status === 429 || /run out of api credits|current limit/i.test(message ?? '');
+
+const getProviderCooldownSeconds = (response: Response): number => {
+  const retryAfterHeader = Number.parseInt(response.headers.get('retry-after') ?? '', 10);
+  if (Number.isFinite(retryAfterHeader) && retryAfterHeader > 0) {
+    return Math.min(retryAfterHeader, 300);
+  }
+  return PROVIDER_COOLDOWN_SECONDS;
+};
+
+const getBackoffSecondsRemaining = (): number =>
+  Math.max(0, Math.ceil((providerBackoffUntilMs - Date.now()) / 1000));
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -45,6 +73,23 @@ export async function GET(request: Request) {
     );
   }
 
+  const backoffSeconds = getBackoffSecondsRemaining();
+  if (backoffSeconds > 0) {
+    if (cached) {
+      return NextResponse.json(
+        { ticker: normalizedTicker, ...cached.data, stale: true, providerLimited: true },
+        { headers: { 'Cache-Control': CACHE_HEADER, 'Retry-After': String(backoffSeconds) } }
+      );
+    }
+    return NextResponse.json(
+      { error: 'Market history temporarily rate-limited', retryAfterSeconds: backoffSeconds },
+      {
+        status: 503,
+        headers: { 'Cache-Control': 'no-store', 'Retry-After': String(backoffSeconds) },
+      }
+    );
+  }
+
   const apiKey = process.env.TWELVE_DATA_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
@@ -60,9 +105,13 @@ export async function GET(request: Request) {
       )}&interval=${encodeURIComponent(interval)}&outputsize=30&apikey=${apiKey}`,
       { cache: 'no-store' }
     );
-    const data = await response.json();
+    const data = (await response.json()) as TwelveDataHistoryResponse;
 
     if (!response.ok || data?.status === 'error') {
+      if (isRateLimitError(response, data?.message)) {
+        const cooldownSeconds = getProviderCooldownSeconds(response);
+        providerBackoffUntilMs = Date.now() + cooldownSeconds * 1000;
+      }
       throw new Error(data?.message || 'Failed to fetch history');
     }
 
@@ -73,7 +122,7 @@ export async function GET(request: Request) {
         close: candle.close,
       }))
       .reverse();
-    const payload = {
+    const payload: HistoryPayload = {
       candles: normalizedCandles,
       updatedAt: new Date().toISOString(),
     };
@@ -83,16 +132,37 @@ export async function GET(request: Request) {
       { headers: { 'Cache-Control': CACHE_HEADER } }
     );
   } catch (error) {
-    console.error('Error fetching market history:', error);
+    logError('market_history_fetch_failed', error, { ticker: normalizedTicker, interval });
+    const retryAfterSeconds = getBackoffSecondsRemaining();
     if (cached) {
       return NextResponse.json(
-        { ticker: normalizedTicker, ...cached.data, stale: true },
-        { headers: { 'Cache-Control': CACHE_HEADER } }
+        {
+          ticker: normalizedTicker,
+          ...cached.data,
+          stale: true,
+          providerLimited: retryAfterSeconds > 0,
+        },
+        {
+          headers: {
+            'Cache-Control': CACHE_HEADER,
+            ...(retryAfterSeconds > 0 ? { 'Retry-After': String(retryAfterSeconds) } : {}),
+          },
+        }
       );
     }
     return NextResponse.json(
-      { error: 'Market history unavailable' },
-      { status: 503, headers: { 'Cache-Control': 'no-store' } }
+      {
+        error:
+          retryAfterSeconds > 0 ? 'Market history temporarily rate-limited' : 'Market history unavailable',
+        ...(retryAfterSeconds > 0 ? { retryAfterSeconds } : {}),
+      },
+      {
+        status: 503,
+        headers: {
+          'Cache-Control': 'no-store',
+          ...(retryAfterSeconds > 0 ? { 'Retry-After': String(retryAfterSeconds) } : {}),
+        },
+      }
     );
   }
 }
