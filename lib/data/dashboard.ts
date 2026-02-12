@@ -33,6 +33,13 @@ const fetchSnapshots = async () => requestJson<PortfolioSnapshot[]>('/api/portfo
 const fetchHoldings = async () => requestJson<Holding[]>('/api/portfolio/holdings');
 
 const LOCAL_SNAPSHOT_KEY = 'accountSnapshots';
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+const isValidIsoDate = (value: string) => {
+  if (!ISO_DATE_PATTERN.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime());
+};
 
 export const useSiteSettings = () => {
   const { data, error, mutate, isLoading } = useSWR('/api/settings', fetchSettings);
@@ -178,7 +185,14 @@ export const updateSettings = async (settings: SiteSettings) =>
 
 export const useSortedSnapshots = (snapshots: PortfolioSnapshot[]) =>
   useMemo(() => {
-    const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
+    const sorted = [...snapshots]
+      .filter(snapshot =>
+        snapshot &&
+        typeof snapshot.date === 'string' &&
+        isValidIsoDate(snapshot.date) &&
+        Number.isFinite(snapshot.value)
+      )
+      .sort((a, b) => a.date.localeCompare(b.date));
     if (!sorted.length) return [];
     const today = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
     const lastRecorded = new Date(`${sorted[sorted.length - 1].date}T00:00:00Z`);
