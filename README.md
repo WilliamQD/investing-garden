@@ -62,18 +62,6 @@ NEXT_PUBLIC_MARKET_CACHE_TTL_MS=180000
 MARKET_SIGNAL_SERVICE_URL=http://localhost:8000/v1/signals/momentum
 ```
 
-Optional Auth.js (OIDC) configuration:
-```bash
-OIDC_ISSUER=https://example-issuer.com
-OIDC_CLIENT_ID=your_client_id
-OIDC_CLIENT_SECRET=your_client_secret
-NEXTAUTH_SECRET=long_random_secret_at_least_16_chars
-NEXTAUTH_URL=https://your-domain.com/api/oidc
-OIDC_ROLE_CLAIM=roles
-OIDC_ADMIN_ROLES=admin
-OIDC_EDITOR_ROLES=editor
-```
-
 4. Run the development server:
 ```bash
 pnpm run dev

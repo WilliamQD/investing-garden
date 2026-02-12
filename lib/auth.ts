@@ -3,7 +3,6 @@ import 'server-only';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies, headers } from 'next/headers';
 
-import { getOidcSession } from '@/lib/auth-oidc';
 
 const MIN_SECRET_LENGTH = 16;
 const MIN_PASSWORD_LENGTH = 8;
@@ -281,19 +280,6 @@ const getRolePermissions = (role: Role) => ROLE_PERMISSIONS[normalizeRole(role)]
 export const getRolePermissionsForRole = (role: Role) => getRolePermissions(role);
 
 export const getAuthorizedSession = async () => {
-  const oidcSession = await getOidcSession();
-  if (oidcSession) {
-    const role = normalizeRole(oidcSession.role);
-    const permissions = getRolePermissions(role);
-    return {
-      isAuthenticated: true,
-      username: oidcSession.username,
-      role,
-      canWrite: permissions.canWrite,
-      expiresAt: null,
-      source: 'oidc' as const,
-    };
-  }
   const cookieSession = await getCookieSession();
   if (cookieSession) {
     const permissions = getRolePermissions(cookieSession.role);
