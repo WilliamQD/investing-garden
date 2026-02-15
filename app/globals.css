@@ -1,18 +1,59 @@
 :root {
-  --bg: #020617;
-  --bg-alt: #02051a;
-  --card-bg: rgba(15, 23, 42, 0.92);
-  --panel-muted: rgba(15, 23, 42, 0.7);
-  --accent: #22d3ee;
-  --accent-soft: rgba(34, 211, 238, 0.4);
-  --accent-warm: #f59e0b;
-  --text-main: #e5e7eb;
-  --text-muted: #64748b;
-  --border-subtle: rgba(148, 163, 184, 0.4);
+  --surface-marble-deep: #070b16;
+  --surface-marble-night: #0e1527;
+  --surface-marble-pane: rgba(22, 30, 49, 0.92);
+  --surface-marble-muted: rgba(22, 30, 49, 0.7);
+  --surface-marble-glass-strong: rgba(22, 30, 49, 0.95);
+  --surface-marble-glass-soft: rgba(22, 30, 49, 0.75);
+  --surface-marble-grid: rgba(30, 41, 68, 0.7);
+  --surface-marble-card-shadow: rgba(9, 14, 28, 0.88);
+  --ink: #e7e5dc;
+  --ink-muted: #97a0af;
+  --ink-strong: #f6f4eb;
+  --stone-border: rgba(151, 160, 175, 0.38);
+  --stone-border-strong: rgba(151, 160, 175, 0.52);
+  --leaf: #8cbc69;
+  --leaf-vivid: #a8d982;
+  --leaf-soft: rgba(140, 188, 105, 0.35);
+  --olive-muted: #5f7753;
+  --gold: #d8ac4a;
+  --gold-bright: #efc86a;
+  --gold-soft: rgba(216, 172, 74, 0.32);
+  --cta-ink: #1e1809;
+  --gradient-marble-dusk: linear-gradient(
+    145deg,
+    var(--surface-marble-pane),
+    rgba(12, 18, 32, 0.95)
+  );
+  --gradient-olive-laurel: linear-gradient(135deg, var(--olive-muted), var(--leaf-vivid));
+  --gradient-aged-gold: linear-gradient(130deg, var(--gold), var(--gold-bright));
+
+  --bg: var(--surface-marble-deep);
+  --bg-alt: var(--surface-marble-night);
+  --card-bg: var(--surface-marble-pane);
+  --panel-muted: var(--surface-marble-muted);
+  --accent: var(--leaf);
+  --accent-soft: var(--leaf-soft);
+  --accent-warm: var(--gold);
+  --text-main: var(--ink);
+  --text-muted: var(--ink-muted);
+  --border-subtle: var(--stone-border);
   --radius-lg: 18px;
   --radius-md: 12px;
-  --shadow-glow: 0 0 0 1px rgba(56, 189, 248, 0.4),
-    0 0 24px rgba(56, 189, 248, 0.2);
+  --shadow-glow: 0 0 0 1px var(--leaf-soft), 0 0 24px rgba(140, 188, 105, 0.2);
+}
+
+body.theme-greek-garden {
+  --surface-marble-pane: rgba(24, 34, 52, 0.92);
+  --leaf: #95c974;
+  --leaf-vivid: #b8e29a;
+  --gold: #deba62;
+  --gold-bright: #f5d88d;
+  --gradient-marble-dusk: linear-gradient(
+    145deg,
+    var(--surface-marble-pane),
+    rgba(16, 24, 38, 0.95)
+  );
 }
 
 *,
@@ -31,7 +72,7 @@ body {
 body {
   font-family: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont,
     sans-serif;
-  background: radial-gradient(circle at top, #020617 0, #000 55%);
+  background: radial-gradient(circle at top, var(--surface-marble-night) 0, #000 55%);
   color: var(--text-main);
   line-height: 1.6;
 }
@@ -41,12 +82,12 @@ body {
   position: fixed;
   inset: 0;
   background-image: linear-gradient(
-      rgba(15, 23, 42, 0.7) 1px,
+      var(--surface-marble-grid) 1px,
       transparent 1px
     ),
     linear-gradient(
       90deg,
-      rgba(15, 23, 42, 0.7) 1px,
+      var(--surface-marble-grid) 1px,
       transparent 1px
     );
   background-size: 40px 40px;
@@ -80,11 +121,11 @@ body {
   backdrop-filter: blur(18px);
   background: linear-gradient(
     to bottom,
-    rgba(15, 23, 42, 0.95),
-    rgba(15, 23, 42, 0.75),
+    var(--surface-marble-glass-strong),
+    var(--surface-marble-glass-soft),
     transparent
   );
-  border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+  border-bottom: 1px solid var(--stone-border);
   padding: 0.75rem 1.5rem;
   display: flex;
   align-items: center;
@@ -326,6 +367,11 @@ body {
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
   gap: 2.5rem;
   padding: 3.5rem 0 2.25rem;
+  background: var(--gradient-marble-dusk);
+  border: 1px solid var(--stone-border);
+  border-radius: var(--radius-lg);
+  margin-top: 1rem;
+  padding-inline: 1.5rem;
 }
 
 .eyebrow {
@@ -344,7 +390,7 @@ body {
 }
 
 .hero .accent {
-  background: linear-gradient(120deg, var(--accent), var(--accent-warm));
+  background: var(--gradient-aged-gold);
   -webkit-background-clip: text;
   color: transparent;
 }
@@ -424,11 +470,11 @@ body {
 }
 
 .stat-card {
-  background: radial-gradient(circle at top left, #0f172a, #020617);
+  background: var(--gradient-marble-dusk);
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  border: 1px solid var(--stone-border);
   padding: 1rem 1.1rem;
-  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.9);
+  box-shadow: 0 20px 45px var(--surface-marble-card-shadow);
 }
 
 .stat-row {
@@ -483,7 +529,7 @@ body {
   padding: 1rem;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(10, 17, 35, 0.9));
+  background: var(--gradient-marble-dusk);
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
 }
 
@@ -978,14 +1024,14 @@ body {
   position: relative;
   background: linear-gradient(
       135deg,
-      rgba(34, 211, 238, 0.12),
+      var(--leaf-soft),
       transparent 40%
     ),
-    linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.96));
+    var(--gradient-marble-dusk);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
   padding: 0.9rem 1rem;
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.9);
+  box-shadow: 0 16px 32px var(--surface-marble-card-shadow);
   overflow: hidden;
   transition: transform 0.15s ease-out, box-shadow 0.15s ease-out,
     border-color 0.15s ease-out;
@@ -1009,7 +1055,7 @@ body {
   inset: -40%;
   background: radial-gradient(
     circle at top left,
-    rgba(56, 189, 248, 0.12),
+    var(--leaf-soft),
     transparent 55%
   );
   opacity: 0;
@@ -1019,7 +1065,7 @@ body {
 
 .card:hover {
   transform: translateY(-3px);
-  border-color: rgba(56, 189, 248, 0.7);
+  border-color: var(--leaf-vivid);
   box-shadow: var(--shadow-glow);
 }
 
@@ -1132,15 +1178,15 @@ body {
 /* FOOTER */
 
 .site-footer {
-  border-top: 1px solid rgba(148, 163, 184, 0.3);
+  border-top: 1px solid var(--stone-border);
   padding: 1.2rem 1.5rem 2rem;
   font-size: 0.78rem;
   color: var(--text-muted);
   text-align: center;
   background: linear-gradient(
     to top,
-    rgba(15, 23, 42, 0.98),
-    rgba(15, 23, 42, 0.95),
+    var(--surface-marble-pane),
+    var(--surface-marble-glass-strong),
     transparent
   );
 }
@@ -1323,26 +1369,27 @@ form {
 }
 
 .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #000;
+  background: var(--gradient-aged-gold);
+  border-color: var(--gold);
+  color: var(--cta-ink);
   font-weight: 600;
 }
 
 .btn-primary:hover {
-  background: #38bdf8;
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2);
+  background: linear-gradient(130deg, var(--gold-bright), var(--gold));
+  box-shadow: 0 0 0 3px var(--gold-soft);
 }
 
 .btn-secondary {
-  background: transparent;
-  border-color: var(--border-subtle);
+  background: linear-gradient(135deg, rgba(95, 119, 83, 0.18), rgba(95, 119, 83, 0.08));
+  border-color: var(--olive-muted);
   color: var(--text-main);
 }
 
 .btn-secondary:hover {
-  background: rgba(148, 163, 184, 0.1);
-  border-color: var(--text-muted);
+  background: var(--gradient-olive-laurel);
+  border-color: var(--leaf-vivid);
+  color: var(--cta-ink);
 }
 
 .btn-secondary:disabled {
