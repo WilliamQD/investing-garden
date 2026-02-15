@@ -23,7 +23,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>
+      <body className="theme-greek-garden">
         <Providers>{children}</Providers>
       </body>
     </html>
