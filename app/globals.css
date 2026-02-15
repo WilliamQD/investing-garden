@@ -72,15 +72,60 @@ body {
 body {
   font-family: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont,
     sans-serif;
-  background: radial-gradient(circle at top, var(--surface-marble-night) 0, #000 55%);
+  background: #04070f;
   color: var(--text-main);
   line-height: 1.6;
 }
 
-/* subtle techy grid background */
-.bg-grid {
+
+@keyframes ambientDrift {
+  0% {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2%, 2%, 0) scale(1.03);
+  }
+  100% {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+  }
+}
+
+@keyframes auroraPulse {
+  0% {
+    transform: translate3d(-4%, -2%, 0) scale(1);
+    opacity: 0.14;
+  }
+  50% {
+    transform: translate3d(3%, 2%, 0) scale(1.06);
+    opacity: 0.2;
+  }
+  100% {
+    transform: translate3d(-4%, -2%, 0) scale(1);
+    opacity: 0.14;
+  }
+}
+
+.bg-marble,
+.bg-grid,
+.bg-noise,
+.bg-vines,
+.bg-halo,
+.bg-aurora {
   position: fixed;
   inset: 0;
+  pointer-events: none;
+}
+
+.bg-marble {
+  background:
+    radial-gradient(120% 80% at 20% 10%, rgba(170, 190, 225, 0.08), transparent 60%),
+    radial-gradient(90% 85% at 88% 14%, rgba(115, 148, 210, 0.07), transparent 64%),
+    linear-gradient(165deg, #0d1527 0%, #090f1d 45%, #050912 100%);
+  z-index: -7;
+}
+
+/* subtle techy grid background */
+.bg-grid {
   background-image: linear-gradient(
       var(--surface-marble-grid) 1px,
       transparent 1px
@@ -91,19 +136,45 @@ body {
       transparent 1px
     );
   background-size: 40px 40px;
-  opacity: 0.25;
-  pointer-events: none;
-  z-index: -2;
+  opacity: 0.16;
+  z-index: -5;
+  animation: ambientDrift 34s ease-in-out infinite;
 }
 
 .bg-noise {
-  position: fixed;
-  inset: 0;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='noStitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.25'/%3E%3C/svg%3E");
   mix-blend-mode: soft-light;
-  opacity: 0.4;
-  pointer-events: none;
+  opacity: 0.22;
+  z-index: -4;
+  animation: ambientDrift 28s ease-in-out infinite reverse;
+}
+
+.bg-vines {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='rgba(168,217,130,0.5)' stroke-width='1.2' stroke-linecap='round'%3E%3Cpath d='M28 360c50-66 102-116 164-154 58-36 128-63 180-171'/%3E%3Cpath d='M56 386c62-84 126-132 200-170'/%3E%3Cpath d='M214 188c-14 8-24 20-31 36'/%3E%3Cpath d='M244 170c-14 8-24 20-31 36'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 560px 560px;
+  background-position: center;
+  opacity: 0.07;
+  mix-blend-mode: screen;
+  z-index: -3;
+}
+
+.bg-halo {
+  background:
+    radial-gradient(circle at 16% 26%, rgba(168, 217, 130, 0.14), transparent 43%),
+    radial-gradient(circle at 86% 18%, rgba(216, 172, 74, 0.1), transparent 42%);
+  z-index: -2;
+  opacity: 0.45;
+  animation: ambientDrift 40s ease-in-out infinite;
+}
+
+.bg-aurora {
+  background:
+    radial-gradient(70% 50% at 50% 100%, rgba(149, 201, 116, 0.2), transparent 72%),
+    radial-gradient(52% 40% at 20% 12%, rgba(110, 170, 226, 0.14), transparent 72%),
+    radial-gradient(46% 44% at 80% 20%, rgba(195, 162, 95, 0.13), transparent 72%);
+  filter: blur(12px);
   z-index: -1;
+  animation: auroraPulse 26s ease-in-out infinite;
 }
 
 .wrapper {
@@ -1848,4 +1919,14 @@ form {
 
 .file-upload input {
   display: none;
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-grid,
+  .bg-noise,
+  .bg-halo,
+  .bg-aurora {
+    animation: none;
+  }
 }
