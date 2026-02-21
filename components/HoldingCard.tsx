@@ -18,7 +18,7 @@ interface HoldingCardProps {
   canEdit: boolean;
   quote?: MarketData;
   onQuoteUpdate?: (ticker: string, data: MarketData) => void;
-  onRemove: (id: string) => void;
+  onRemove: (id: string) => Promise<void> | void;
   onUpdateHolding: (
     id: string,
     label: string,
@@ -37,6 +37,8 @@ export default function HoldingCard({
 }: HoldingCardProps) {
   const [refreshToken, setRefreshToken] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [draftLabel, setDraftLabel] = useState(holding.label ?? '');
   const [draftQuantity, setDraftQuantity] = useState(
     holding.quantity != null ? String(holding.quantity) : ''
@@ -52,6 +54,16 @@ export default function HoldingCard({
     setDraftQuantity(holding.quantity != null ? String(holding.quantity) : '');
     setDraftPurchasePrice(holding.purchasePrice != null ? String(holding.purchasePrice) : '');
   }, [holding.label, holding.quantity, holding.purchasePrice]);
+
+  const handleRemove = async () => {
+    try {
+      setIsDeleting(true);
+      await onRemove(holding.id);
+    } catch (error) {
+      console.error('Failed to remove holding', error);
+      setIsDeleting(false);
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -257,14 +269,38 @@ export default function HoldingCard({
               >
                 {isEditing ? 'Close' : 'Edit details'}
               </button>
-              <button
-                className="holding-remove"
-                onClick={() => onRemove(holding.id)}
-                type="button"
-                disabled={isSaving}
-              >
-                Remove
-              </button>
+              {isConfirming ? (
+                <>
+                  <button
+                    className="holding-remove"
+                    onClick={() => void handleRemove()}
+                    type="button"
+                    disabled={isDeleting}
+                    aria-label={`Confirm removal of ${holding.ticker}`}
+                    style={{ borderColor: 'var(--accent-warm)', color: 'var(--accent-warm)' }}
+                  >
+                    {isDeleting ? 'Deleting...' : 'Confirm'}
+                  </button>
+                  <button
+                    className="holding-edit-toggle"
+                    onClick={() => setIsConfirming(false)}
+                    type="button"
+                    disabled={isDeleting}
+                    aria-label="Cancel removal"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="holding-remove"
+                  onClick={() => setIsConfirming(true)}
+                  type="button"
+                  disabled={isSaving || isDeleting}
+                >
+                  Remove
+                </button>
+              )}
             </>
           )}
         </div>

@@ -75,7 +75,7 @@ export default function KnowledgeModal({ isOpen, entry, onClose, onSave }: Knowl
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">{entry ? 'Edit' : 'Add'} knowledge item</h3>
-          <button className="modal-close" onClick={onClose}>&times;</button>
+          <button className="modal-close" onClick={onClose} aria-label="Close modal">&times;</button>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
