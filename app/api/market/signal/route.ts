@@ -47,7 +47,7 @@ export async function GET(request: Request) {
     const signalResponse = await fetch(SIGNAL_SERVICE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      cache: 'no-store',
+      next: { revalidate: 300 },
       body: JSON.stringify({
         ticker: normalizedTicker,
         closes,
@@ -64,7 +64,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(signalData, {
       headers: {
-        'Cache-Control': 's-maxage=120, stale-while-revalidate=120',
+        'Cache-Control': 's-maxage=300, stale-while-revalidate=300',
       },
     });
   } catch (error) {
