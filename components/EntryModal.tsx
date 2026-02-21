@@ -118,7 +118,7 @@ export default function EntryModal({ isOpen, onClose, onSave, entry, type }: Ent
           <h3 className="modal-title">
             {entry ? 'Edit' : 'Add'} {type === 'journal' ? 'Journal Entry' : type === 'learning' ? 'Learning Note' : 'Resource'}
           </h3>
-          <button className="modal-close" onClick={onClose}>&times;</button>
+          <button className="modal-close" onClick={onClose} aria-label="Close modal">&times;</button>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
