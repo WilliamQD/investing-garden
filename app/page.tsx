@@ -16,8 +16,12 @@ export default function Home() {
 
   return (
     <>
+      <div className="bg-marble"></div>
       <div className="bg-grid"></div>
       <div className="bg-noise"></div>
+      <div className="bg-vines"></div>
+      <div className="bg-halo"></div>
+      <div className="bg-aurora"></div>
 
       <header className="site-header">
         <div className="logo">
