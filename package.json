@@ -9,6 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "hash-password": "node scripts/hash-password.mjs",
     "migrations:check": "node -e \"require('./lib/migrations.js').checkMigrations()\"",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"lib/**/*.test.js\""
