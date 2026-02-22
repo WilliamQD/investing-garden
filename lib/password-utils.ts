@@ -22,7 +22,7 @@ export const verifyPassword = async (password: string, storedHash: string): Prom
   const parts = storedHash.split(':');
   if (parts.length !== 3) return false;
 
-  const [_, salt, key] = parts;
+  const [, salt, key] = parts;
   const derivedKeyBuffer = Buffer.from(key, 'hex');
 
   try {

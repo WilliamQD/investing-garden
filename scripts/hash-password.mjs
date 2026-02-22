@@ -1,5 +1,5 @@
-const { scrypt, randomBytes } = require('node:crypto');
-const { promisify } = require('node:util');
+import { scrypt, randomBytes } from 'node:crypto';
+import { promisify } from 'node:util';
 
 const scryptAsync = promisify(scrypt);
 
@@ -15,7 +15,7 @@ const hashPassword = async (password) => {
 const main = async () => {
   const password = process.argv[2];
   if (!password) {
-    console.error('Usage: node scripts/hash-password.js <password>');
+    console.error('Usage: node scripts/hash-password.mjs <password>');
     process.exit(1);
   }
 
