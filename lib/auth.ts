@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies, headers } from 'next/headers';
+import { verifyPassword } from './password-utils';
 
 
 const MIN_SECRET_LENGTH = 16;
@@ -239,17 +240,19 @@ export const clearLoginAttempts = async () => {
   loginAttempts.delete(ip);
 };
 
-export const verifyCredentials = (username: string, password: string) => {
+export const verifyCredentials = async (username: string, password: string) => {
   const normalizedUsername = username.trim();
   if (!normalizedUsername || !password) return null;
-  const credential = adminCredentials.find(credential => {
-    if (!safeEquals(credential.username, normalizedUsername)) {
-      return false;
+
+  for (const credential of adminCredentials) {
+    if (safeEquals(credential.username, normalizedUsername)) {
+      const isValid = await verifyPassword(password, credential.password);
+      if (isValid) {
+        return { username: credential.username, role: credential.role };
+      }
     }
-    return safeEquals(credential.password, password);
-  });
-  if (!credential) return null;
-  return { username: credential.username, role: credential.role };
+  }
+  return null;
 };
 
 export const createSessionCookieValue = (username: string, role: Role) => {
