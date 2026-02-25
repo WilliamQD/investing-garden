@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     ? (body as { password: string }).password
     : '';
 
-  const credential = verifyCredentials(username, password);
+  const credential = await verifyCredentials(username, password);
   if (!credential) {
     await registerFailedLogin();
     return NextResponse.json({ error: 'Invalid credentials.' }, { status: 401 });
