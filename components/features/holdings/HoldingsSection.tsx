@@ -35,8 +35,6 @@ export default function HoldingsSection({
 }: HoldingsSectionProps) {
   const [newTicker, setNewTicker] = useState('');
   const [newLabel, setNewLabel] = useState('');
-  const [newQuantity, setNewQuantity] = useState('');
-  const [newPurchasePrice, setNewPurchasePrice] = useState('');
   const [holdingsQuery, setHoldingsQuery] = useState('');
   const [quotes, setQuotes] = useState<Record<string, MarketData>>({});
   const filteredHoldings = useMemo(() => {
@@ -128,34 +126,12 @@ export default function HoldingsSection({
     if (!newTicker.trim()) return;
     try {
       if (!canWrite) {
-        onStatusMessage('Sign in as admin to add holdings.');
+        onStatusMessage('Sign in as admin to track symbols.');
         return;
-      }
-      const quantityValue = newQuantity.trim();
-      let quantity: number | null = null;
-      if (quantityValue) {
-        const parsed = Number(quantityValue);
-        if (Number.isNaN(parsed) || parsed < 0) {
-          onStatusMessage('Quantity must be a non-negative number.');
-          return;
-        }
-        quantity = parsed;
-      }
-      const purchaseValue = newPurchasePrice.trim();
-      let purchasePrice: number | null = null;
-      if (purchaseValue) {
-        const parsed = Number(purchaseValue);
-        if (Number.isNaN(parsed) || parsed < 0) {
-          onStatusMessage('Purchase price must be a non-negative number.');
-          return;
-        }
-        purchasePrice = parsed;
       }
       const holding = await addHolding({
         ticker: newTicker.trim(),
         label: newLabel.trim() || undefined,
-        quantity,
-        purchasePrice,
       });
       mutateHoldings(current => {
         const existing = current ?? [];
@@ -166,13 +142,11 @@ export default function HoldingsSection({
       }, { revalidate: false });
       setNewTicker('');
       setNewLabel('');
-      setNewQuantity('');
-      setNewPurchasePrice('');
       onStatusMessage('');
     } catch (error) {
       console.error('Error adding holding:', error);
       onStatusMessage(
-        error instanceof ApiError ? error.message : 'Unable to add holding right now.'
+        error instanceof ApiError ? error.message : 'Unable to track symbol right now.'
       );
     }
   };
@@ -231,7 +205,7 @@ export default function HoldingsSection({
           <p className="eyebrow">Market view</p>
           <h2>Tracked holdings</h2>
           <p className="hero-text">
-            Add symbols you care about to monitor live prices and recent trends.
+            Add symbols to track live prices. Log trades to build positions.
           </p>
         </div>
         {canWrite ? (
@@ -255,32 +229,10 @@ export default function HoldingsSection({
                 placeholder="Core position"
               />
             </label>
-            <label>
-              Qty
-              <input
-                type="number"
-                value={newQuantity}
-                onChange={(event) => setNewQuantity(event.target.value)}
-                placeholder="0"
-                min="0"
-                step="1"
-              />
-            </label>
-            <label>
-              Purchase price
-              <input
-                type="number"
-                value={newPurchasePrice}
-                onChange={(event) => setNewPurchasePrice(event.target.value)}
-                placeholder="0.00"
-                min="0"
-                step="0.01"
-              />
-            </label>
-            <button type="submit" className="btn-primary">Add holding</button>
+            <button type="submit" className="btn-primary">Track symbol</button>
           </form>
         ) : (
-          <p className="admin-hint">Enable admin mode to add holdings.</p>
+          <p className="admin-hint">Enable admin mode to track symbols.</p>
         )}
       </div>
       {(holdings.length > 0 || cashBalance > 0) && (
@@ -293,7 +245,7 @@ export default function HoldingsSection({
             <div className="stat-sub">
               {holdingsSummary.valueCount
                 ? `${holdingsSummary.valueCount} position${holdingsSummary.valueCount === 1 ? '' : 's'} with qty`
-                : 'Add quantities to see totals.'}
+                : 'Log trades to see totals.'}
             </div>
           </div>
           <div className="stat-card small">

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getAuthorizedSession } from '@/lib/auth';
 import { logAuditEvent } from '@/lib/audit';
-import { addPortfolioTrade, getPortfolioTrades } from '@/lib/portfolio';
+import { addPortfolioTrade, getHoldings, getPortfolioTrades, recalculateHolding } from '@/lib/portfolio';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { normalizeTicker } from '@/lib/validation';
 
@@ -69,8 +69,24 @@ export async function POST(request: Request) {
     if (!ISO_DATE_PATTERN.test(tradeDate)) {
       return NextResponse.json({ error: 'Trade date must be YYYY-MM-DD.' }, { status: 400 });
     }
-    const gainLossRaw = payload.gainLoss;
+    // For sell trades, validate sufficient shares and auto-calculate gain/loss
     let gainLoss: number | null = null;
+    if (action === 'sell') {
+      const holdings = await getHoldings();
+      const holding = holdings.find(h => h.ticker === ticker);
+      const heldQty = holding?.quantity ?? 0;
+      if (heldQty < quantity) {
+        return NextResponse.json(
+          { error: `Cannot sell ${quantity} shares — only ${heldQty} held.` },
+          { status: 400 }
+        );
+      }
+      // Auto-calculate gain/loss from holding's average cost
+      const avgCost = holding?.purchasePrice ?? 0;
+      gainLoss = (price - avgCost) * quantity;
+    }
+    // Allow explicit gainLoss override if provided (for manual/historical entries)
+    const gainLossRaw = payload.gainLoss;
     if (gainLossRaw != null && gainLossRaw !== '') {
       const parsed = Number(gainLossRaw);
       if (!Number.isFinite(parsed)) {
@@ -88,6 +104,8 @@ export async function POST(request: Request) {
       gainLoss,
       notes,
     });
+    // Recalculate the holding from full trade history
+    await recalculateHolding(ticker);
     await logAuditEvent('portfolio_trade_added', session, {
       tradeId: trade.id,
       ticker: trade.ticker,

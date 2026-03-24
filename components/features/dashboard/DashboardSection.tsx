@@ -172,8 +172,10 @@ export default function DashboardSection() {
 
       <TradeHistory
         trades={trades}
+        holdings={holdings}
         canWrite={canWrite}
         mutateTrades={mutateTrades}
+        mutateHoldings={mutateHoldings}
       />
 
       {canWrite && <BackupRestore />}

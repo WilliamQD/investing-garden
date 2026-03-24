@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getAuthorizedSession } from '@/lib/auth';
 import { logAuditEvent } from '@/lib/audit';
-import { deletePortfolioTrade } from '@/lib/portfolio';
+import { deletePortfolioTrade, getPortfolioTrades, recalculateHolding } from '@/lib/portfolio';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 export async function DELETE(
@@ -31,9 +31,16 @@ export async function DELETE(
     if (!session.canWrite) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+    // Fetch the trade's ticker before deleting so we can recalculate the holding
+    const trades = await getPortfolioTrades();
+    const trade = trades.find(t => t.id === id);
     const success = await deletePortfolioTrade(id);
     if (!success) {
       return NextResponse.json({ error: 'Trade not found' }, { status: 404 });
+    }
+    // Recalculate holding from remaining trades
+    if (trade) {
+      await recalculateHolding(trade.ticker);
     }
     await logAuditEvent('portfolio_trade_removed', session, { tradeId: id });
     return NextResponse.json({ success: true });

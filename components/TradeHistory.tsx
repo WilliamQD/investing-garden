@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { KeyedMutator } from 'swr';
 
 import { ApiError } from '@/lib/data/client';
 import {
+  Holding,
   PortfolioTrade,
   addTrade,
   removeTrade,
@@ -12,31 +13,78 @@ import {
 
 interface TradeHistoryProps {
   trades: PortfolioTrade[];
+  holdings: Holding[];
   canWrite: boolean;
   mutateTrades: KeyedMutator<PortfolioTrade[]>;
+  mutateHoldings: KeyedMutator<Holding[]>;
 }
 
-export default function TradeHistory({ trades, canWrite, mutateTrades }: TradeHistoryProps) {
+type EntryMode = 'existing' | 'manual';
+
+export default function TradeHistory({
+  trades,
+  holdings,
+  canWrite,
+  mutateTrades,
+  mutateHoldings,
+}: TradeHistoryProps) {
   const [formOpen, setFormOpen] = useState(false);
-  const [ticker, setTicker] = useState('');
-  const [action, setAction] = useState<'buy' | 'sell'>('sell');
+  const [entryMode, setEntryMode] = useState<EntryMode>('existing');
+  const [selectedTicker, setSelectedTicker] = useState('');
+  const [manualTicker, setManualTicker] = useState('');
+  const [action, setAction] = useState<'buy' | 'sell'>('buy');
   const [quantity, setQuantity] = useState('');
   const [price, setPrice] = useState('');
+  const [purchasePrice, setPurchasePrice] = useState('');
   const [tradeDate, setTradeDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [gainLoss, setGainLoss] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const holdingsWithQty = useMemo(
+    () => holdings.filter(h => h.quantity != null && h.quantity > 0),
+    [holdings]
+  );
+
+  const selectedHolding = useMemo(
+    () => (entryMode === 'existing' ? holdingsWithQty.find(h => h.ticker === selectedTicker) : null),
+    [entryMode, selectedTicker, holdingsWithQty]
+  );
+
+  const effectiveTicker = entryMode === 'existing' ? selectedTicker : manualTicker.trim().toUpperCase();
+
+  // For sells from existing holding, use the holding's avg cost
+  const effectivePurchasePrice = useMemo(() => {
+    if (action !== 'sell') return null;
+    if (entryMode === 'existing' && selectedHolding?.purchasePrice != null) {
+      return selectedHolding.purchasePrice;
+    }
+    const parsed = Number(purchasePrice);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  }, [action, entryMode, selectedHolding, purchasePrice]);
+
+  // Auto-calculate gain/loss for sell trades
+  const computedGainLoss = useMemo(() => {
+    if (action !== 'sell') return null;
+    const qty = Number(quantity);
+    const sellPrice = Number(price);
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(sellPrice) || effectivePurchasePrice == null) {
+      return null;
+    }
+    return (sellPrice - effectivePurchasePrice) * qty;
+  }, [action, quantity, price, effectivePurchasePrice]);
+
   const resetForm = () => {
-    setTicker('');
-    setAction('sell');
+    setEntryMode('existing');
+    setSelectedTicker('');
+    setManualTicker('');
+    setAction('buy');
     setQuantity('');
     setPrice('');
+    setPurchasePrice('');
     setTradeDate(new Date().toISOString().slice(0, 10));
-    setGainLoss('');
     setNotes('');
     setStatusMessage('');
   };
@@ -45,6 +93,10 @@ export default function TradeHistory({ trades, canWrite, mutateTrades }: TradeHi
     event.preventDefault();
     if (!canWrite) {
       setStatusMessage('Sign in as admin to add trades.');
+      return;
+    }
+    if (!effectiveTicker) {
+      setStatusMessage('Select or enter a symbol.');
       return;
     }
     const qtyNum = Number(quantity);
@@ -57,32 +109,24 @@ export default function TradeHistory({ trades, canWrite, mutateTrades }: TradeHi
       setStatusMessage('Price must be a non-negative number.');
       return;
     }
-    const glRaw = gainLoss.trim();
-    let glValue: number | null = null;
-    if (glRaw) {
-      const parsed = Number(glRaw);
-      if (!Number.isFinite(parsed)) {
-        setStatusMessage('Gain/loss must be a number.');
-        return;
-      }
-      glValue = parsed;
-    }
     try {
       setSubmitting(true);
       setStatusMessage('');
       const trade = await addTrade({
-        ticker: ticker.trim(),
+        ticker: effectiveTicker,
         action,
         quantity: qtyNum,
         price: priceNum,
         tradeDate,
-        gainLoss: glValue,
+        gainLoss: computedGainLoss,
         notes: notes.trim() || undefined,
       });
       mutateTrades(current => {
         const next = [trade, ...(current ?? [])];
         return next.sort((a, b) => b.tradeDate.localeCompare(a.tradeDate));
       }, { revalidate: false });
+      // Refresh holdings since the server recalculated them
+      void mutateHoldings();
       resetForm();
       setFormOpen(false);
     } catch (error) {
@@ -99,6 +143,8 @@ export default function TradeHistory({ trades, canWrite, mutateTrades }: TradeHi
       setDeletingId(id);
       await removeTrade(id);
       mutateTrades(current => (current ?? []).filter(t => t.id !== id), { revalidate: false });
+      // Refresh holdings since the server recalculated them
+      void mutateHoldings();
       setConfirmingId(null);
     } catch (error) {
       console.error('Error deleting trade:', error);
@@ -129,7 +175,7 @@ export default function TradeHistory({ trades, canWrite, mutateTrades }: TradeHi
           <p className="eyebrow">Activity log</p>
           <h2>Trade history</h2>
           <p className="hero-text">
-            Record completed trades to track your performance over time.
+            Log trades to build and update your holdings automatically.
           </p>
         </div>
         {canWrite && (
@@ -141,24 +187,59 @@ export default function TradeHistory({ trades, canWrite, mutateTrades }: TradeHi
               setFormOpen(prev => !prev);
             }}
           >
-            {formOpen ? 'Cancel' : 'Add trade'}
+            {formOpen ? 'Cancel' : 'Log trade'}
           </button>
         )}
       </div>
 
-      {formOpen && (
+      {canWrite && formOpen && (
         <form className="trade-form" onSubmit={handleSubmit}>
+          <div className="trade-mode-toggle">
+            <button
+              type="button"
+              className={`trade-mode-btn ${entryMode === 'existing' ? 'active' : ''}`}
+              onClick={() => setEntryMode('existing')}
+            >
+              From holdings
+            </button>
+            <button
+              type="button"
+              className={`trade-mode-btn ${entryMode === 'manual' ? 'active' : ''}`}
+              onClick={() => setEntryMode('manual')}
+            >
+              New symbol
+            </button>
+          </div>
+
           <div className="trade-form-row">
-            <label>
-              Symbol
-              <input
-                type="text"
-                value={ticker}
-                onChange={e => setTicker(e.target.value.toUpperCase())}
-                placeholder="MU"
-                required
-              />
-            </label>
+            {entryMode === 'existing' ? (
+              <label>
+                Holding
+                <select
+                  value={selectedTicker}
+                  onChange={e => setSelectedTicker(e.target.value)}
+                  required
+                >
+                  <option value="">Select a holding...</option>
+                  {holdingsWithQty.map(h => (
+                    <option key={h.id} value={h.ticker}>
+                      {h.ticker}{h.quantity != null ? ` (${h.quantity} shares)` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <label>
+                Symbol
+                <input
+                  type="text"
+                  value={manualTicker}
+                  onChange={e => setManualTicker(e.target.value.toUpperCase())}
+                  placeholder="AAPL"
+                  required
+                />
+              </label>
+            )}
             <label>
               Action
               <select value={action} onChange={e => setAction(e.target.value as 'buy' | 'sell')}>
@@ -179,7 +260,7 @@ export default function TradeHistory({ trades, canWrite, mutateTrades }: TradeHi
               />
             </label>
             <label>
-              Price
+              {action === 'sell' ? 'Sell price' : 'Buy price'}
               <input
                 type="number"
                 value={price}
@@ -191,6 +272,7 @@ export default function TradeHistory({ trades, canWrite, mutateTrades }: TradeHi
               />
             </label>
           </div>
+
           <div className="trade-form-row">
             <label>
               Date
@@ -201,16 +283,30 @@ export default function TradeHistory({ trades, canWrite, mutateTrades }: TradeHi
                 required
               />
             </label>
-            <label>
-              Gain/Loss
-              <input
-                type="number"
-                value={gainLoss}
-                onChange={e => setGainLoss(e.target.value)}
-                placeholder="0.00"
-                step="0.01"
-              />
-            </label>
+            {action === 'sell' && entryMode === 'manual' && (
+              <label>
+                Purchase price
+                <input
+                  type="number"
+                  value={purchasePrice}
+                  onChange={e => setPurchasePrice(e.target.value)}
+                  placeholder="Avg cost per share"
+                  min="0"
+                  step="0.01"
+                />
+              </label>
+            )}
+            {action === 'sell' && (
+              <label>
+                Gain/Loss
+                <input
+                  type="text"
+                  value={computedGainLoss != null ? formatCurrency(computedGainLoss, true) : '--'}
+                  readOnly
+                  className="trade-readonly"
+                />
+              </label>
+            )}
             <label>
               Notes
               <input
@@ -221,6 +317,13 @@ export default function TradeHistory({ trades, canWrite, mutateTrades }: TradeHi
               />
             </label>
           </div>
+
+          {action === 'sell' && entryMode === 'existing' && selectedHolding?.purchasePrice != null && (
+            <p className="trade-auto-hint">
+              Avg cost: {formatCurrency(selectedHolding.purchasePrice)} per share (from holding)
+            </p>
+          )}
+
           <div className="trade-form-actions">
             <button type="submit" className="btn-primary" disabled={submitting}>
               {submitting ? 'Saving...' : 'Save trade'}

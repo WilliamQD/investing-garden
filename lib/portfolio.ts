@@ -253,6 +253,84 @@ export async function deletePortfolioTrade(id: string): Promise<boolean> {
   return (result.rowCount ?? 0) > 0;
 }
 
+/**
+ * Recalculate a holding's quantity and average cost from its full trade history.
+ * Uses the average cost basis method (Fidelity default):
+ * - BUY: add shares and cost to pool
+ * - SELL: remove shares, reduce cost proportionally at current avg cost
+ * If final qty <= 0, the holding is deleted. Otherwise it's upserted.
+ */
+export async function recalculateHolding(ticker: string): Promise<Holding | null> {
+  await ensureTables();
+  const normalizedTicker = ticker.trim().toUpperCase();
+
+  const { rows: tradeRows } = await sql`
+    SELECT action, quantity, price
+    FROM portfolio_trades
+    WHERE ticker = ${normalizedTicker}
+    ORDER BY trade_date ASC, created_at ASC
+  `;
+
+  let totalShares = 0;
+  let totalCost = 0;
+
+  for (const row of tradeRows) {
+    const qty = Number(row.quantity);
+    const price = Number(row.price);
+    if (row.action === 'buy') {
+      totalCost += qty * price;
+      totalShares += qty;
+    } else if (row.action === 'sell') {
+      if (totalShares > 0) {
+        const avgCostAtSell = totalCost / totalShares;
+        totalCost -= qty * avgCostAtSell;
+        totalShares -= qty;
+      }
+    }
+  }
+
+  // Clamp to avoid floating point drift below zero
+  if (totalShares <= 0) {
+    totalShares = 0;
+    totalCost = 0;
+  }
+
+  const { rows: holdingRows } = await sql`
+    SELECT id FROM portfolio_holdings WHERE ticker = ${normalizedTicker} LIMIT 1
+  `;
+
+  if (totalShares <= 0) {
+    // Auto-remove holding when all shares sold
+    if (holdingRows[0]) {
+      await sql`DELETE FROM portfolio_holdings WHERE ticker = ${normalizedTicker}`;
+    }
+    return null;
+  }
+
+  const avgCost = totalCost / totalShares;
+
+  if (holdingRows[0]) {
+    const { rows } = await sql`
+      UPDATE portfolio_holdings
+      SET quantity = ${totalShares}, purchase_price = ${avgCost}
+      WHERE ticker = ${normalizedTicker}
+      RETURNING id, ticker, label, quantity, purchase_price, created_at
+    `;
+    return mapHolding(rows[0]);
+  } else {
+    // Create holding if it doesn't exist (e.g. trade added without tracking symbol first)
+    const id = randomUUID();
+    const createdAt = new Date().toISOString();
+    const { rows } = await sql`
+      INSERT INTO portfolio_holdings (id, ticker, label, quantity, purchase_price, created_at)
+      VALUES (${id}, ${normalizedTicker}, ${null}, ${totalShares}, ${avgCost}, ${createdAt})
+      ON CONFLICT (ticker) DO UPDATE SET quantity = ${totalShares}, purchase_price = ${avgCost}
+      RETURNING id, ticker, label, quantity, purchase_price, created_at
+    `;
+    return mapHolding(rows[0]);
+  }
+}
+
 export async function updateSiteSettings(
   settings: Partial<SiteSettings>
 ): Promise<SiteSettings> {

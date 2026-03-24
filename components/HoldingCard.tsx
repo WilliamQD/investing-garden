@@ -40,20 +40,12 @@ export default function HoldingCard({
   const [isConfirming, setIsConfirming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [draftLabel, setDraftLabel] = useState(holding.label ?? '');
-  const [draftQuantity, setDraftQuantity] = useState(
-    holding.quantity != null ? String(holding.quantity) : ''
-  );
-  const [draftPurchasePrice, setDraftPurchasePrice] = useState(
-    holding.purchasePrice != null ? String(holding.purchasePrice) : ''
-  );
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     setDraftLabel(holding.label ?? '');
-    setDraftQuantity(holding.quantity != null ? String(holding.quantity) : '');
-    setDraftPurchasePrice(holding.purchasePrice != null ? String(holding.purchasePrice) : '');
-  }, [holding.label, holding.quantity, holding.purchasePrice]);
+  }, [holding.label]);
 
   const handleRemove = async () => {
     try {
@@ -69,40 +61,16 @@ export default function HoldingCard({
     try {
       setIsSaving(true);
       setErrorMessage('');
-      const parseNumber = (
-        value: string,
-        fieldName: string
-      ): { value: number | null; error?: string } => {
-        const trimmed = value.trim();
-        if (!trimmed) {
-          return { value: null };
-        }
-        const numeric = Number.parseFloat(trimmed);
-        if (!Number.isFinite(numeric) || numeric < 0) {
-          return { value: null, error: `${fieldName} must be a non-negative number.` };
-        }
-        return { value: numeric };
-      };
-      const quantityResult = parseNumber(draftQuantity, 'Quantity');
-      if (quantityResult.error) {
-        setErrorMessage(quantityResult.error);
-        return;
-      }
-      const purchaseResult = parseNumber(draftPurchasePrice, 'Purchase price');
-      if (purchaseResult.error) {
-        setErrorMessage(purchaseResult.error);
-        return;
-      }
       await onUpdateHolding(
         holding.id,
         draftLabel,
-        quantityResult.value,
-        purchaseResult.value
+        holding.quantity ?? null,
+        holding.purchasePrice ?? null
       );
       setIsEditing(false);
     } catch (error) {
-      console.error('Failed to update holding details', error);
-      setErrorMessage('Unable to update holding details.');
+      console.error('Failed to update holding label', error);
+      setErrorMessage('Unable to update label.');
     } finally {
       setIsSaving(false);
     }
@@ -186,29 +154,6 @@ export default function HoldingCard({
                   aria-label={`Edit label for ${holding.ticker}`}
                 />
               </label>
-              <label>
-                Quantity
-                <input
-                  type="number"
-                  value={draftQuantity}
-                  onChange={(event) => setDraftQuantity(event.target.value)}
-                  placeholder="0"
-                  min="0"
-                  step="1"
-                />
-              </label>
-              <label>
-                Purchase price
-                <input
-                  type="number"
-                  value={draftPurchasePrice}
-                  onChange={(event) => setDraftPurchasePrice(event.target.value)}
-                  placeholder="0.00"
-                  min="0"
-                  step="0.01"
-                />
-                <span className="holding-edit-hint">Avg cost per share from your brokerage</span>
-              </label>
               {errorMessage && <p className="holding-edit-error">{errorMessage}</p>}
               <div className="holding-edit-actions">
                 <button
@@ -224,10 +169,6 @@ export default function HoldingCard({
                   type="button"
                   onClick={() => {
                     setDraftLabel(holding.label ?? '');
-                    setDraftQuantity(holding.quantity != null ? String(holding.quantity) : '');
-                    setDraftPurchasePrice(
-                      holding.purchasePrice != null ? String(holding.purchasePrice) : ''
-                    );
                     setErrorMessage('');
                     setIsEditing(false);
                   }}
@@ -260,17 +201,13 @@ export default function HoldingCard({
                 className="holding-edit-toggle"
                 onClick={() => {
                   setDraftLabel(holding.label ?? '');
-                  setDraftQuantity(holding.quantity != null ? String(holding.quantity) : '');
-                  setDraftPurchasePrice(
-                    holding.purchasePrice != null ? String(holding.purchasePrice) : ''
-                  );
                   setErrorMessage('');
                   setIsEditing(prev => !prev);
                 }}
                 type="button"
                 disabled={isSaving}
               >
-                {isEditing ? 'Close' : 'Edit details'}
+                {isEditing ? 'Close' : 'Edit label'}
               </button>
               {isConfirming ? (
                 <>
