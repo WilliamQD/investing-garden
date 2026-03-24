@@ -17,6 +17,20 @@ export type SiteSettings = {
   headline: string;
   summary: string;
   focusAreas: string[];
+  cashBalance?: number;
+  cashLabel?: string;
+};
+
+export type PortfolioTrade = {
+  id: string;
+  ticker: string;
+  action: 'buy' | 'sell';
+  quantity: number;
+  price: number;
+  tradeDate: string;
+  gainLoss?: number;
+  notes?: string;
+  createdAt: string;
 };
 
 const DEFAULT_SETTINGS: SiteSettings = {
@@ -24,6 +38,8 @@ const DEFAULT_SETTINGS: SiteSettings = {
   summary:
     'A clean, industrial workspace for tracking portfolio moves, market context, and research notes in one place.',
   focusAreas: [],
+  cashBalance: 0,
+  cashLabel: 'SPAXX',
 };
 
 const fetchSettings = async () => requestJson<SiteSettings>('/api/settings');
@@ -31,6 +47,8 @@ const fetchSettings = async () => requestJson<SiteSettings>('/api/settings');
 const fetchSnapshots = async () => requestJson<PortfolioSnapshot[]>('/api/portfolio/snapshots');
 
 const fetchHoldings = async () => requestJson<Holding[]>('/api/portfolio/holdings');
+
+const fetchTrades = async () => requestJson<PortfolioTrade[]>('/api/portfolio/trades');
 
 const LOCAL_SNAPSHOT_KEY = 'accountSnapshots';
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -121,21 +139,6 @@ export const addHolding = async (payload: {
     }
   );
 
-export const importHoldings = async (payload: {
-  holdings: { ticker: string; label?: string; quantity?: number | null; purchasePrice?: number | null }[];
-}) =>
-  requestJson<{ holdings: Holding[]; skipped: number }>(
-    '/api/portfolio/holdings',
-    {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    },
-    {
-      unauthorizedMessage: 'Sign in as admin to import holdings.',
-      errorMessage: 'Unable to import holdings right now.',
-    }
-  );
-
 export const removeHolding = async (id: string) =>
   requestJson<{ success: boolean }>(
     `/api/portfolio/holdings/${id}`,
@@ -167,6 +170,49 @@ export const updateHolding = async (payload: {
     {
       unauthorizedMessage: 'Sign in as admin to update holding details.',
       errorMessage: 'Unable to update holding details right now.',
+    }
+  );
+
+export const useTrades = () => {
+  const { data, error, mutate, isLoading } = useSWR('/api/portfolio/trades', fetchTrades);
+  return {
+    trades: data ?? [],
+    isLoading,
+    errorMessage: error ? 'Trade history unavailable.' : '',
+    mutate,
+  };
+};
+
+export const addTrade = async (payload: {
+  ticker: string;
+  action: 'buy' | 'sell';
+  quantity: number;
+  price: number;
+  tradeDate: string;
+  gainLoss?: number | null;
+  notes?: string;
+}) =>
+  requestJson<PortfolioTrade>(
+    '/api/portfolio/trades',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    {
+      unauthorizedMessage: 'Sign in as admin to add trades.',
+      errorMessage: 'Unable to add trade right now.',
+    }
+  );
+
+export const removeTrade = async (id: string) =>
+  requestJson<{ success: boolean }>(
+    `/api/portfolio/trades/${id}`,
+    {
+      method: 'DELETE',
+    },
+    {
+      unauthorizedMessage: 'Sign in as admin to remove trades.',
+      errorMessage: 'Unable to remove trade right now.',
     }
   );
 

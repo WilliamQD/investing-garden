@@ -8,6 +8,8 @@ type QuotePayload = {
   currency?: string;
   changePercent?: number;
   updatedAt: string;
+  fiftyTwoWeekLow?: number;
+  fiftyTwoWeekHigh?: number;
 };
 
 type TwelveDataQuote = {
@@ -20,6 +22,10 @@ type TwelveDataQuote = {
   percent_change?: string | number;
   timestamp?: string | number;
   datetime?: string;
+  fifty_two_week?: {
+    low?: string | number;
+    high?: string | number;
+  };
 };
 
 const DEFAULT_CACHE_TTL_SECONDS = 300;
@@ -141,11 +147,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Ticker not found' }, { status: 404 });
     }
 
+    const fiftyTwoWeekLow = parseNumeric(data.fifty_two_week?.low);
+    const fiftyTwoWeekHigh = parseNumeric(data.fifty_two_week?.high);
     const payload: QuotePayload = {
       price: resolvedPrice,
       currency: data.currency,
       changePercent: parseNumeric(data.percent_change),
       updatedAt: resolveUpdatedAt(data),
+      fiftyTwoWeekLow,
+      fiftyTwoWeekHigh,
     };
     quoteCache.set(normalizedTicker, { data: payload, timestamp: Date.now() });
     return NextResponse.json(

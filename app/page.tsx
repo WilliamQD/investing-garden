@@ -6,9 +6,8 @@ import AuthControls from '@/components/AuthControls';
 import DashboardSection from '@/components/features/dashboard/DashboardSection';
 import JournalSection from '@/components/features/journal/JournalSection';
 import KnowledgeSection from '@/components/KnowledgeSection';
-import StatsPanel from '@/components/StatsPanel';
 
-type SectionKey = 'dashboard' | 'journal' | 'knowledge' | 'stats';
+type SectionKey = 'dashboard' | 'journal' | 'knowledge';
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState<SectionKey>('dashboard');
@@ -47,12 +46,6 @@ export default function Home() {
             >
               Knowledge
             </button>
-            <button
-              className={`nav-link ${activeSection === 'stats' ? 'active' : ''}`}
-              onClick={() => setActiveSection('stats')}
-            >
-              Stats
-            </button>
           </nav>
           <AuthControls />
         </div>
@@ -67,10 +60,6 @@ export default function Home() {
 
         <section className={`panel ${activeSection === 'knowledge' ? 'panel-active' : ''}`}>
           {activeSection === 'knowledge' && <KnowledgeSection />}
-        </section>
-
-        <section className={`panel ${activeSection === 'stats' ? 'panel-active' : ''}`}>
-          {activeSection === 'stats' && <StatsPanel />}
         </section>
       </main>
 

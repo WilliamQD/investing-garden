@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
+import FiftyTwoWeekRange from './FiftyTwoWeekRange';
 import MarketPrice, { MarketData } from './MarketPrice';
-import MarketSparkline from './MarketSparkline';
 
 type Holding = {
   id: string;
@@ -121,6 +121,8 @@ export default function HoldingCard({
     isFiniteNumber(price) && isFiniteNumber(quantity) && isFiniteNumber(changePercent)
       ? price * quantity * (changePercent / 100)
       : null;
+  const costBasis =
+    isFiniteNumber(purchasePrice) && isFiniteNumber(quantity) ? purchasePrice * quantity : null;
   const totalGain =
     isFiniteNumber(price) && isFiniteNumber(quantity) && isFiniteNumber(purchasePrice)
       ? (price - purchasePrice) * quantity
@@ -205,6 +207,7 @@ export default function HoldingCard({
                   min="0"
                   step="0.01"
                 />
+                <span className="holding-edit-hint">Avg cost per share from your brokerage</span>
               </label>
               {errorMessage && <p className="holding-edit-error">{errorMessage}</p>}
               <div className="holding-edit-actions">
@@ -335,6 +338,10 @@ export default function HoldingCard({
           <p className="holding-metric-value">{formatQuantity(quantity)}</p>
         </div>
         <div className="holding-metric">
+          <p className="holding-metric-label">Cost basis</p>
+          <p className="holding-metric-value">{formatCurrency(costBasis)}</p>
+        </div>
+        <div className="holding-metric">
           <p className="holding-metric-label">Total value</p>
           <p className="holding-metric-value">{formatCurrency(totalValue)}</p>
         </div>
@@ -348,7 +355,12 @@ export default function HoldingCard({
           )}
         </div>
       </div>
-      <MarketSparkline ticker={holding.ticker} refreshToken={refreshToken} />
+      <FiftyTwoWeekRange
+        low={quote?.fiftyTwoWeekLow}
+        high={quote?.fiftyTwoWeekHigh}
+        current={quote?.price}
+        currency={currency}
+      />
     </article>
   );
 }

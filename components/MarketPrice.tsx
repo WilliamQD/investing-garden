@@ -15,6 +15,8 @@ export interface MarketData {
   updatedAt?: string;
   stale?: boolean;
   cached?: boolean;
+  fiftyTwoWeekLow?: number;
+  fiftyTwoWeekHigh?: number;
 }
 
 const DEFAULT_CACHE_TTL = 180_000;
@@ -62,13 +64,17 @@ export default function MarketPrice({ ticker, refreshToken, onData }: MarketPric
         }
         const changePercent = Number(result.changePercent);
         if (isActive) {
-          const nextData = {
+          const fiftyTwoWeekLow = Number(result.fiftyTwoWeekLow);
+          const fiftyTwoWeekHigh = Number(result.fiftyTwoWeekHigh);
+          const nextData: MarketData = {
             price,
             currency: typeof result.currency === 'string' ? result.currency : undefined,
             changePercent: Number.isFinite(changePercent) ? changePercent : undefined,
             updatedAt: typeof result.updatedAt === 'string' ? result.updatedAt : undefined,
             stale: Boolean(result.stale),
             cached: Boolean(result.cached),
+            fiftyTwoWeekLow: Number.isFinite(fiftyTwoWeekLow) ? fiftyTwoWeekLow : undefined,
+            fiftyTwoWeekHigh: Number.isFinite(fiftyTwoWeekHigh) ? fiftyTwoWeekHigh : undefined,
           };
           marketCache.set(normalizedTicker, { data: nextData, timestamp: Date.now() });
           setData(nextData);

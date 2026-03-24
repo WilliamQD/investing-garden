@@ -24,6 +24,20 @@ export interface SiteSettings {
   headline: string;
   summary: string;
   focusAreas: string[];
+  cashBalance?: number;
+  cashLabel?: string;
+}
+
+export interface PortfolioTrade {
+  id: string;
+  ticker: string;
+  action: 'buy' | 'sell';
+  quantity: number;
+  price: number;
+  tradeDate: string;
+  gainLoss?: number;
+  notes?: string;
+  createdAt: string;
 }
 
 const DEFAULT_SETTINGS: SiteSettings = {
@@ -31,6 +45,8 @@ const DEFAULT_SETTINGS: SiteSettings = {
   summary:
     'A clean, industrial workspace for tracking portfolio moves, market context, and research notes in one place.',
   focusAreas: [],
+  cashBalance: 0,
+  cashLabel: 'SPAXX',
 };
 
 const normalizeSettings = (data: Partial<SiteSettings> | null): SiteSettings => {
@@ -45,10 +61,18 @@ const normalizeSettings = (data: Partial<SiteSettings> | null): SiteSettings => 
   const focusAreas = Array.isArray(data?.focusAreas)
     ? data.focusAreas.map(area => area.trim()).filter(Boolean)
     : DEFAULT_SETTINGS.focusAreas;
+  const rawCash = Number(data?.cashBalance);
+  const cashBalance = Number.isFinite(rawCash) && rawCash >= 0 ? rawCash : DEFAULT_SETTINGS.cashBalance;
+  const cashLabel =
+    typeof data?.cashLabel === 'string' && data.cashLabel.trim()
+      ? data.cashLabel.trim().slice(0, 20)
+      : DEFAULT_SETTINGS.cashLabel;
   return {
     headline,
     summary,
     focusAreas,
+    cashBalance,
+    cashLabel,
   };
 };
 
@@ -139,41 +163,6 @@ export async function addHolding(
   return mapHolding(rows[0]);
 }
 
-export async function addHoldings(
-  holdings: { ticker: string; label?: string; quantity?: number | null; purchasePrice?: number | null }[]
-): Promise<Holding[]> {
-  await ensureTables();
-  if (!holdings.length) return [];
-  const values: (string | number | null)[] = [];
-  const rows = holdings.map((holding, index) => {
-    const id = randomUUID();
-    const normalizedTicker = holding.ticker.trim().toUpperCase();
-    const createdAt = new Date().toISOString();
-    const offset = index * 6;
-    values.push(
-      id,
-      normalizedTicker,
-      holding.label ?? null,
-      holding.quantity ?? null,
-      holding.purchasePrice ?? null,
-      createdAt
-    );
-    return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6})`;
-  });
-  const query = `
-    INSERT INTO portfolio_holdings (id, ticker, label, quantity, purchase_price, created_at)
-    VALUES ${rows.join(', ')}
-    ON CONFLICT (ticker)
-    DO UPDATE SET
-      label = COALESCE(EXCLUDED.label, portfolio_holdings.label),
-      quantity = COALESCE(EXCLUDED.quantity, portfolio_holdings.quantity),
-      purchase_price = COALESCE(EXCLUDED.purchase_price, portfolio_holdings.purchase_price)
-    RETURNING id, ticker, label, quantity, purchase_price, created_at
-  `;
-  const result = await sql.query(query, values);
-  return result.rows.map(row => mapHolding(row));
-}
-
 export async function deleteHolding(id: string): Promise<boolean> {
   await ensureTables();
   const result = await sql`
@@ -212,6 +201,56 @@ export async function getSiteSettings(): Promise<SiteSettings> {
     return DEFAULT_SETTINGS;
   }
   return normalizeSettings(rows[0].data as Partial<SiteSettings>);
+}
+
+const mapTrade = (row: Record<string, unknown>): PortfolioTrade => ({
+  id: row.id as string,
+  ticker: row.ticker as string,
+  action: row.action as 'buy' | 'sell',
+  quantity: Number(row.quantity),
+  price: Number(row.price),
+  tradeDate: String(row.trade_date),
+  gainLoss: row.gain_loss != null ? Number(row.gain_loss) : undefined,
+  notes: (row.notes as string) || undefined,
+  createdAt: new Date(row.created_at as string).toISOString(),
+});
+
+export async function getPortfolioTrades(): Promise<PortfolioTrade[]> {
+  await ensureTables();
+  const { rows } = await sql`
+    SELECT id, ticker, action, quantity, price, trade_date, gain_loss, notes, created_at
+    FROM portfolio_trades
+    ORDER BY trade_date DESC
+  `;
+  return rows.map(row => mapTrade(row));
+}
+
+export async function addPortfolioTrade(trade: {
+  ticker: string;
+  action: 'buy' | 'sell';
+  quantity: number;
+  price: number;
+  tradeDate: string;
+  gainLoss?: number | null;
+  notes?: string | null;
+}): Promise<PortfolioTrade> {
+  await ensureTables();
+  const id = randomUUID();
+  const createdAt = new Date().toISOString();
+  const { rows } = await sql`
+    INSERT INTO portfolio_trades (id, ticker, action, quantity, price, trade_date, gain_loss, notes, created_at)
+    VALUES (${id}, ${trade.ticker.trim().toUpperCase()}, ${trade.action}, ${trade.quantity}, ${trade.price}, ${trade.tradeDate}, ${trade.gainLoss ?? null}, ${trade.notes ?? null}, ${createdAt})
+    RETURNING id, ticker, action, quantity, price, trade_date, gain_loss, notes, created_at
+  `;
+  return mapTrade(rows[0]);
+}
+
+export async function deletePortfolioTrade(id: string): Promise<boolean> {
+  await ensureTables();
+  const result = await sql`
+    DELETE FROM portfolio_trades WHERE id = ${id}
+  `;
+  return (result.rowCount ?? 0) > 0;
 }
 
 export async function updateSiteSettings(

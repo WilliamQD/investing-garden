@@ -5,14 +5,13 @@ import type { KeyedMutator } from 'swr';
 
 import HoldingCard from '@/components/HoldingCard';
 import type { MarketData } from '@/components/MarketPrice';
-import holdingsImport from '@/lib/holdings-import';
 import {
   ApiError,
 } from '@/lib/data/client';
 import {
   Holding,
+  SiteSettings,
   addHolding,
-  importHoldings,
   removeHolding,
   updateHolding,
 } from '@/lib/data/dashboard';
@@ -22,6 +21,8 @@ type HoldingsSectionProps = {
   canWrite: boolean;
   onStatusMessage: (message: string) => void;
   mutateHoldings: KeyedMutator<Holding[]>;
+  settings: SiteSettings;
+  onPortfolioValueChange?: (value: number | null) => void;
 };
 
 export default function HoldingsSection({
@@ -29,20 +30,15 @@ export default function HoldingsSection({
   canWrite,
   onStatusMessage,
   mutateHoldings,
+  settings,
+  onPortfolioValueChange,
 }: HoldingsSectionProps) {
   const [newTicker, setNewTicker] = useState('');
   const [newLabel, setNewLabel] = useState('');
   const [newQuantity, setNewQuantity] = useState('');
   const [newPurchasePrice, setNewPurchasePrice] = useState('');
-  const [bulkOpen, setBulkOpen] = useState(false);
-  const [bulkText, setBulkText] = useState('');
-  const [bulkStatus, setBulkStatus] = useState('');
-  const [bulkSubmitting, setBulkSubmitting] = useState(false);
   const [holdingsQuery, setHoldingsQuery] = useState('');
   const [quotes, setQuotes] = useState<Record<string, MarketData>>({});
-  const bulkPlaceholder = `ticker,label,quantity,purchasePrice\nAAPL, Core position,10,150\nMSFT,,5,250\nNVDA, Momentum,12,430\n(limit ${holdingsImport.MAX_BULK_HOLDINGS})`;
-
-  const bulkPreview = useMemo(() => holdingsImport.parseHoldingsCsv(bulkText), [bulkText]);
   const filteredHoldings = useMemo(() => {
     if (!holdingsQuery.trim()) return holdings;
     const query = holdingsQuery.trim().toLowerCase();
@@ -107,6 +103,11 @@ export default function HoldingsSection({
       gainCount,
     };
   }, [holdings, quotes]);
+  useEffect(() => {
+    onPortfolioValueChange?.(holdingsSummary.valueCount > 0 ? holdingsSummary.totalValue : null);
+  }, [holdingsSummary.totalValue, holdingsSummary.valueCount, onPortfolioValueChange]);
+  const cashBalance = settings.cashBalance ?? 0;
+  const cashLabel = settings.cashLabel ?? 'SPAXX';
   const formatCurrency = (value: number | null, withSign = false) => {
     if (value == null) return '--';
     return new Intl.NumberFormat('en-US', {
@@ -173,55 +174,6 @@ export default function HoldingsSection({
       onStatusMessage(
         error instanceof ApiError ? error.message : 'Unable to add holding right now.'
       );
-    }
-  };
-
-  const handleBulkImport = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!canWrite) {
-      setBulkStatus('Sign in as admin to import holdings.');
-      return;
-    }
-    if (bulkPreview.errors.length) {
-      setBulkStatus('Resolve the import issues before submitting.');
-      return;
-    }
-    if (!bulkPreview.holdings.length) {
-      setBulkStatus('Add at least one holding to import.');
-      return;
-    }
-    try {
-      setBulkSubmitting(true);
-      setBulkStatus('');
-      const result = await importHoldings({ holdings: bulkPreview.holdings });
-      const imported = Array.isArray(result.holdings) ? result.holdings : [];
-      mutateHoldings(current => {
-        const next = [...(current ?? [])];
-        imported.forEach(holding => {
-          const index = next.findIndex(item => item.id === holding.id);
-          if (index >= 0) {
-            next[index] = holding;
-          } else {
-            next.unshift(holding);
-          }
-        });
-        return next;
-      }, { revalidate: false });
-      const skipped = Number(result.skipped) || 0;
-      setBulkStatus(
-        `Imported ${imported.length} holding${imported.length === 1 ? '' : 's'}${
-          skipped ? ` · ${skipped} duplicate${skipped === 1 ? '' : 's'} skipped` : ''
-        }.`
-      );
-      setBulkText('');
-      setBulkOpen(false);
-    } catch (error) {
-      console.error('Error importing holdings:', error);
-      setBulkStatus(
-        error instanceof ApiError ? error.message : 'Unable to import holdings right now.'
-      );
-    } finally {
-      setBulkSubmitting(false);
     }
   };
 
@@ -331,7 +283,7 @@ export default function HoldingsSection({
           <p className="admin-hint">Enable admin mode to add holdings.</p>
         )}
       </div>
-      {holdings.length > 0 && (
+      {(holdings.length > 0 || cashBalance > 0) && (
         <div className="holdings-summary">
           <div className="stat-card small">
             <div className="stat-label">Total value</div>
@@ -386,83 +338,17 @@ export default function HoldingsSection({
                 : 'Add purchase prices to track gains.'}
             </div>
           </div>
-        </div>
-      )}
-      {canWrite && (
-        <div className="holdings-import">
-          <div className="holdings-import-header">
-            <div>
-              <p className="eyebrow-alt">Bulk import</p>
-              <p className="panel-sub">Paste a CSV to add multiple tickers at once.</p>
+          {cashBalance > 0 && (
+            <div className="stat-card small cash-card">
+              <div className="stat-label">{cashLabel}</div>
+              <div className="stat-value">{formatCurrency(cashBalance)}</div>
+              <div className="stat-sub">
+                {holdingsSummary.valueCount
+                  ? `${((cashBalance / (holdingsSummary.totalValue + cashBalance)) * 100).toFixed(1)}% of account`
+                  : 'Cash / money market'}
+              </div>
             </div>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setBulkOpen(prev => !prev)}
-            >
-              {bulkOpen ? 'Close importer' : 'Open importer'}
-            </button>
-          </div>
-          {bulkOpen && (
-            <form className="holdings-import-form" onSubmit={handleBulkImport}>
-              <label>
-                Holdings list (Ticker, Label, Qty, Purchase Price)
-                <textarea
-                  value={bulkText}
-                  onChange={(event) => {
-                    setBulkText(event.target.value);
-                    if (bulkStatus) setBulkStatus('');
-                  }}
-                  placeholder={bulkPlaceholder}
-                  rows={5}
-                />
-              </label>
-              <div className="holdings-import-meta">
-                <span>{bulkPreview.holdings.length} ready</span>
-                {bulkPreview.skipped > 0 && (
-                  <span>
-                    {bulkPreview.skipped} duplicate{bulkPreview.skipped === 1 ? '' : 's'} skipped
-                  </span>
-                )}
-                {bulkPreview.errors.length > 0 && (
-                  <span>
-                    {bulkPreview.errors.length} issue{bulkPreview.errors.length === 1 ? '' : 's'} to fix
-                  </span>
-                )}
-              </div>
-              {bulkPreview.errors.length > 0 && (
-                <ul className="holdings-import-errors">
-                  {bulkPreview.errors.map((error: { line?: number; message: string }, index: number) => (
-                    <li key={`${error.line ?? 'general'}-${index}`}>
-                      {error.line ? `Line ${error.line}: ` : ''}
-                      {error.message}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="holdings-import-actions">
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={bulkSubmitting || !bulkPreview.holdings.length || bulkPreview.errors.length > 0}
-                >
-                  {bulkSubmitting ? 'Importing...' : 'Import holdings'}
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => {
-                    setBulkText('');
-                    setBulkStatus('');
-                  }}
-                  disabled={bulkSubmitting}
-                >
-                  Clear
-                </button>
-              </div>
-            </form>
           )}
-          {bulkStatus && <p className="auth-message">{bulkStatus}</p>}
         </div>
       )}
       {holdings.length > 0 && (
