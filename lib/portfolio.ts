@@ -247,6 +247,36 @@ export async function addPortfolioTrade(trade: {
   return mapTrade(rows[0]);
 }
 
+export async function updatePortfolioTrade(
+  id: string,
+  updates: {
+    ticker?: string;
+    action?: 'buy' | 'sell';
+    quantity?: number;
+    price?: number;
+    tradeDate?: string;
+    gainLoss?: number | null;
+    notes?: string | null;
+  }
+): Promise<PortfolioTrade | null> {
+  await ensureTables();
+  const fields: string[] = [];
+  const values: unknown[] = [];
+  if (updates.ticker != null) { fields.push('ticker'); values.push(updates.ticker.trim().toUpperCase()); }
+  if (updates.action != null) { fields.push('action'); values.push(updates.action); }
+  if (updates.quantity != null) { fields.push('quantity'); values.push(updates.quantity); }
+  if (updates.price != null) { fields.push('price'); values.push(updates.price); }
+  if (updates.tradeDate != null) { fields.push('trade_date'); values.push(updates.tradeDate); }
+  if ('gainLoss' in updates) { fields.push('gain_loss'); values.push(updates.gainLoss ?? null); }
+  if ('notes' in updates) { fields.push('notes'); values.push(updates.notes ?? null); }
+  if (fields.length === 0) return null;
+  // Build the SET clause dynamically
+  const setClauses = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');
+  const query = `UPDATE portfolio_trades SET ${setClauses} WHERE id = $1 RETURNING id, ticker, action, quantity, price, trade_date, gain_loss, notes, created_at`;
+  const { rows } = await sql.query(query, [id, ...values]);
+  return rows[0] ? mapTrade(rows[0]) : null;
+}
+
 export async function deletePortfolioTrade(id: string): Promise<boolean> {
   await ensureTables();
   const result = await sql`

@@ -204,6 +204,27 @@ export const addTrade = async (payload: {
     }
   );
 
+export const updateTrade = async (id: string, payload: Partial<{
+  ticker: string;
+  action: 'buy' | 'sell';
+  quantity: number;
+  price: number;
+  tradeDate: string;
+  gainLoss: number | null;
+  notes: string | null;
+}>) =>
+  requestJson<PortfolioTrade>(
+    `/api/portfolio/trades/${id}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+    {
+      unauthorizedMessage: 'Sign in as admin to edit trades.',
+      errorMessage: 'Unable to update trade right now.',
+    }
+  );
+
 export const removeTrade = async (id: string) =>
   requestJson<{ success: boolean }>(
     `/api/portfolio/trades/${id}`,

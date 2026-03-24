@@ -9,6 +9,7 @@ import {
   PortfolioTrade,
   addTrade,
   removeTrade,
+  updateTrade,
 } from '@/lib/data/dashboard';
 
 interface TradeHistoryProps {
@@ -42,6 +43,15 @@ export default function TradeHistory({
   const [statusMessage, setStatusMessage] = useState('');
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<{
+    quantity: string;
+    price: string;
+    tradeDate: string;
+    gainLoss: string;
+    notes: string;
+  }>({ quantity: '', price: '', tradeDate: '', gainLoss: '', notes: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const holdingsWithQty = useMemo(
     () => holdings.filter(h => h.quantity != null && h.quantity > 0),
@@ -153,6 +163,55 @@ export default function TradeHistory({
     }
   };
 
+  const startEditing = (trade: PortfolioTrade) => {
+    setEditingId(trade.id);
+    setEditDraft({
+      quantity: String(trade.quantity),
+      price: String(trade.price),
+      tradeDate: trade.tradeDate,
+      gainLoss: trade.gainLoss != null ? String(trade.gainLoss) : '',
+      notes: trade.notes ?? '',
+    });
+    setConfirmingId(null);
+  };
+
+  const handleSaveEdit = async (trade: PortfolioTrade) => {
+    const qtyNum = Number(editDraft.quantity);
+    const priceNum = Number(editDraft.price);
+    if (!Number.isFinite(qtyNum) || qtyNum <= 0) {
+      setStatusMessage('Quantity must be a positive number.');
+      return;
+    }
+    if (!Number.isFinite(priceNum) || priceNum < 0) {
+      setStatusMessage('Price must be a non-negative number.');
+      return;
+    }
+    try {
+      setSavingEdit(true);
+      setStatusMessage('');
+      const glParsed = editDraft.gainLoss !== '' ? Number(editDraft.gainLoss) : null;
+      const updated = await updateTrade(trade.id, {
+        quantity: qtyNum,
+        price: priceNum,
+        tradeDate: editDraft.tradeDate,
+        gainLoss: glParsed != null && Number.isFinite(glParsed) ? glParsed : null,
+        notes: editDraft.notes.trim() || null,
+      });
+      mutateTrades(current => {
+        const next = (current ?? []).map(t => t.id === trade.id ? updated : t);
+        return next.sort((a, b) => b.tradeDate.localeCompare(a.tradeDate));
+      }, { revalidate: false });
+      void mutateHoldings();
+      setEditingId(null);
+    } catch (error) {
+      setStatusMessage(
+        error instanceof ApiError ? error.message : 'Unable to update trade.'
+      );
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const formatCurrency = (value: number, withSign = false) =>
     new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -166,6 +225,7 @@ export default function TradeHistory({
       month: 'short',
       day: 'numeric',
       year: 'numeric',
+      timeZone: 'UTC',
     });
 
   return (
@@ -359,52 +419,141 @@ export default function TradeHistory({
                       ? 'stat-value-negative'
                       : ''
                   : '';
+                const isEditing = editingId === trade.id;
                 return (
                   <tr key={trade.id}>
-                    <td>{formatDate(trade.tradeDate)}</td>
-                    <td className="trade-ticker">{trade.ticker}</td>
-                    <td>
-                      <span className={`trade-action trade-action-${trade.action}`}>
-                        {trade.action.toUpperCase()}
-                      </span>
-                    </td>
-                    <td>{trade.quantity}</td>
-                    <td>{formatCurrency(trade.price)}</td>
-                    <td className={glClass}>
-                      {trade.gainLoss != null ? formatCurrency(trade.gainLoss, true) : '--'}
-                    </td>
-                    <td className="trade-notes">{trade.notes || '--'}</td>
-                    {canWrite && (
-                      <td>
-                        {confirmingId === trade.id ? (
+                    {isEditing ? (
+                      <>
+                        <td>
+                          <input
+                            type="date"
+                            className="trade-edit-input"
+                            value={editDraft.tradeDate}
+                            onChange={e => setEditDraft(d => ({ ...d, tradeDate: e.target.value }))}
+                          />
+                        </td>
+                        <td className="trade-ticker">{trade.ticker}</td>
+                        <td>
+                          <span className={`trade-action trade-action-${trade.action}`}>
+                            {trade.action.toUpperCase()}
+                          </span>
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            className="trade-edit-input"
+                            value={editDraft.quantity}
+                            onChange={e => setEditDraft(d => ({ ...d, quantity: e.target.value }))}
+                            min="0"
+                            step="1"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            className="trade-edit-input"
+                            value={editDraft.price}
+                            onChange={e => setEditDraft(d => ({ ...d, price: e.target.value }))}
+                            min="0"
+                            step="0.01"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            className="trade-edit-input"
+                            value={editDraft.gainLoss}
+                            onChange={e => setEditDraft(d => ({ ...d, gainLoss: e.target.value }))}
+                            step="0.01"
+                            placeholder="--"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            className="trade-edit-input"
+                            value={editDraft.notes}
+                            onChange={e => setEditDraft(d => ({ ...d, notes: e.target.value }))}
+                            placeholder="Optional note"
+                          />
+                        </td>
+                        <td>
                           <span className="trade-confirm-actions">
                             <button
                               type="button"
                               className="trade-delete-confirm"
-                              onClick={() => void handleDelete(trade.id)}
-                              disabled={deletingId === trade.id}
+                              onClick={() => void handleSaveEdit(trade)}
+                              disabled={savingEdit}
                             >
-                              {deletingId === trade.id ? '...' : 'Yes'}
+                              {savingEdit ? '...' : 'Save'}
                             </button>
                             <button
                               type="button"
                               className="trade-delete-cancel"
-                              onClick={() => setConfirmingId(null)}
-                              disabled={deletingId === trade.id}
+                              onClick={() => { setEditingId(null); setStatusMessage(''); }}
                             >
-                              No
+                              Cancel
                             </button>
                           </span>
-                        ) : (
-                          <button
-                            type="button"
-                            className="trade-delete"
-                            onClick={() => setConfirmingId(trade.id)}
-                          >
-                            Remove
-                          </button>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td>{formatDate(trade.tradeDate)}</td>
+                        <td className="trade-ticker">{trade.ticker}</td>
+                        <td>
+                          <span className={`trade-action trade-action-${trade.action}`}>
+                            {trade.action.toUpperCase()}
+                          </span>
+                        </td>
+                        <td>{trade.quantity}</td>
+                        <td>{formatCurrency(trade.price)}</td>
+                        <td className={glClass}>
+                          {trade.gainLoss != null ? formatCurrency(trade.gainLoss, true) : '--'}
+                        </td>
+                        <td className="trade-notes">{trade.notes || '--'}</td>
+                        {canWrite && (
+                          <td>
+                            {confirmingId === trade.id ? (
+                              <span className="trade-confirm-actions">
+                                <button
+                                  type="button"
+                                  className="trade-delete-confirm"
+                                  onClick={() => void handleDelete(trade.id)}
+                                  disabled={deletingId === trade.id}
+                                >
+                                  {deletingId === trade.id ? '...' : 'Yes'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="trade-delete-cancel"
+                                  onClick={() => setConfirmingId(null)}
+                                  disabled={deletingId === trade.id}
+                                >
+                                  No
+                                </button>
+                              </span>
+                            ) : (
+                              <span className="trade-row-actions">
+                                <button
+                                  type="button"
+                                  className="trade-edit"
+                                  onClick={() => startEditing(trade)}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="trade-delete"
+                                  onClick={() => setConfirmingId(trade.id)}
+                                >
+                                  Remove
+                                </button>
+                              </span>
+                            )}
+                          </td>
                         )}
-                      </td>
+                      </>
                     )}
                   </tr>
                 );

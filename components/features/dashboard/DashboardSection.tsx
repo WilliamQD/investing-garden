@@ -81,6 +81,10 @@ export default function DashboardSection() {
     ? portfolioValue + cashBalance
     : cashBalance > 0 ? cashBalance : null;
 
+  const realizedGainLoss = trades
+    .filter(t => t.action === 'sell' && t.gainLoss != null)
+    .reduce((sum, t) => sum + (t.gainLoss ?? 0), 0);
+
   return (
     <>
       <section className="hero">
@@ -124,9 +128,13 @@ export default function DashboardSection() {
               <div className="stat-sub">Symbols in view</div>
             </div>
             <div className="stat-card small">
-              <div className="stat-label">Trades logged</div>
-              <div className="stat-value">{trades.length}</div>
-              <div className="stat-sub">Completed trades</div>
+              <div className="stat-label">Realized P&amp;L</div>
+              <div className={`stat-value ${realizedGainLoss > 0 ? 'stat-value-positive' : realizedGainLoss < 0 ? 'stat-value-negative' : ''}`}>
+                {trades.some(t => t.action === 'sell')
+                  ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', signDisplay: 'exceptZero' }).format(realizedGainLoss)
+                  : '--'}
+              </div>
+              <div className="stat-sub">{trades.length} trade{trades.length !== 1 ? 's' : ''} logged</div>
             </div>
           </div>
           <p className="hero-disclaimer">
