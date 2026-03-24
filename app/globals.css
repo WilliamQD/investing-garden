@@ -714,6 +714,10 @@ body {
   color: var(--text-main);
 }
 
+.trade-form input[type="date"] {
+  color-scheme: dark;
+}
+
 .account-graph,
 .portfolio-graph {
   margin-top: 1rem;

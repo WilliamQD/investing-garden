@@ -209,7 +209,9 @@ const mapTrade = (row: Record<string, unknown>): PortfolioTrade => ({
   action: row.action as 'buy' | 'sell',
   quantity: Number(row.quantity),
   price: Number(row.price),
-  tradeDate: String(row.trade_date),
+  tradeDate: row.trade_date instanceof Date
+    ? row.trade_date.toISOString().slice(0, 10)
+    : String(row.trade_date).slice(0, 10),
   gainLoss: row.gain_loss != null ? Number(row.gain_loss) : undefined,
   notes: (row.notes as string) || undefined,
   createdAt: new Date(row.created_at as string).toISOString(),

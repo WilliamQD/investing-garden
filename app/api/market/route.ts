@@ -60,7 +60,11 @@ const resolveUpdatedAt = (data: TwelveDataQuote): string => {
     return new Date(Number.parseFloat(data.timestamp) * 1000).toISOString();
   }
   if (typeof data.datetime === 'string') {
-    const parsed = new Date(data.datetime.replace(' ', 'T'));
+    // TwelveData datetime is in the exchange's local timezone (e.g. ET for NYSE).
+    // Appending a Z or offset isn't reliable across all exchanges, so treat as
+    // approximate — the Unix timestamp branch above is always preferred.
+    const normalized = data.datetime.replace(' ', 'T');
+    const parsed = new Date(normalized);
     if (!Number.isNaN(parsed.getTime())) {
       return parsed.toISOString();
     }

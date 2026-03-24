@@ -121,6 +121,7 @@ export default function MarketPrice({ ticker, refreshToken, onData }: MarketPric
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
+      timeZoneName: 'short',
     })
     : null;
 
