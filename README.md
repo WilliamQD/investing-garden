@@ -1,29 +1,28 @@
 # Investing Garden
 
-Investing Garden is a clean, industrial workspace for tracking portfolio progress, research notes, and market context in one place.
+A personal portfolio tracker for monitoring holdings, logging trades, and organizing investment research in one place.
 
 ## Features
 
-- **Dashboard view**: Portfolio snapshot chart + live holdings tracker
-- **Holdings watchlist**: Track symbols, quantities, cost basis, and live prices with recent trendlines
-- **Trade journal**: Log trades with rationale, emotion, and outcomes
-- **Knowledge hub**: Merge learning notes and external resources into one library
-- **Admin-only edits**: Public read access with role-aware, session-based write actions
-- **Persistent storage**: Postgres (Neon/Vercel Postgres) for all entries and portfolio snapshots
-- **Backups + analytics**: Export/restore JSON or ZIP archives and view activity stats
-- **Markdown notes**: Markdown support with live preview
-- **Market data**: Twelve Data quotes + candles with caching to stay within free limits
+- **Live holdings tracker**: Track symbols with real-time prices, company names, 52-week range, cost basis, and gain/loss
+- **Trade history**: Log buy/sell trades with automatic average cost basis recalculation (Fidelity-style)
+- **Portfolio overview**: Live portfolio value, today's change, total gain/loss, realized P&L from completed trades
+- **Cash position**: Track money market / cash balance alongside holdings
+- **Journal**: Document trade rationale, emotions, and outcomes with markdown support
+- **Knowledge hub**: Organize learning notes and external resources
+- **Backup & restore**: Full data export/import (JSON or ZIP) covering journal, knowledge, holdings, trades, settings, and snapshots
+- **Admin sessions**: Credential-based authentication with signed HttpOnly session cookies
+- **Market data**: Twelve Data quotes with server-side caching
 
 ## Tech Stack
 
 - **Framework**: Next.js 16 (App Router)
 - **Language**: TypeScript
-- **Styling**: Custom CSS
-- **Backend**: Next.js API Routes
-- **Storage**: Vercel Postgres / Neon
-- **Auth**: Auth.js OIDC (optional) with credential-based fallback and signed HttpOnly sessions
-- **Runtime**: Node.js
-- **Signal microservice**: FastAPI (Python) for momentum + RSI scoring
+- **Styling**: Tailwind CSS 4 + custom CSS
+- **Storage**: Vercel Postgres (Neon)
+- **Auth**: Credential-based with HMAC-SHA256 signed sessions
+- **Data fetching**: SWR (client), Twelve Data API (market quotes)
+- **Signal microservice**: FastAPI (Python) for momentum + RSI scoring (optional)
 
 ## Getting Started
 
@@ -80,24 +79,30 @@ pnpm start
 
 ### Admin access
 
-Click the Visitor/Admin pill in the header, enter approved credentials or use SSO, and sign in. Admin mode unlocks portfolio snapshot entry, holdings edits, and knowledge/journal CRUD.
+Click the Visitor/Admin pill in the header, enter approved credentials, and sign in. Admin mode unlocks trade logging, holding management, journal/knowledge editing, and backup/restore. Sessions expire when the browser is closed.
 
-### Dashboard workflows
+### Dashboard
 
-- Add daily portfolio snapshots to build the account trajectory chart.
-- Add holdings symbols (or paste a CSV list) with optional quantities and cost basis to monitor live prices and gains.
+- View live portfolio value, today's change, total gain/loss, and realized P&L
+- Log trades (buy/sell) — holdings are automatically created and updated via average cost basis
+- Review full trade history with inline editing
+
+### Holdings
+
+- Add ticker symbols to track live prices and company names
+- View current price, daily change, cost basis, total value, gain/loss, and 52-week range
+- Quantities and average cost are computed from trade history
+- Track cash/money market position alongside holdings
 
 ### Knowledge hub
 
-- Capture research notes and learning goals.
-- Save external resources with type taxonomy (website, course, research paper, etc.).
+- Capture research notes and learning goals
+- Save external resources with type taxonomy (website, course, research paper, etc.)
 
-### Data validation notes
+### Backup & restore
 
-- Portfolio snapshots require a `YYYY-MM-DD` date and a non-negative numeric value.
-- Holdings tickers accept 1-10 characters (letters, numbers, `.` or `-`).
-- Resource URLs must start with `http://` or `https://`.
-- Backup restores accept JSON or ZIP files up to 5MB.
+- Export all data (journal, knowledge, holdings, trades, settings, snapshots) to JSON or ZIP
+- Restore from a backup file to repopulate the database
 
 ## Project Structure
 
@@ -105,88 +110,109 @@ Click the Visitor/Admin pill in the header, enter approved credentials or use SS
 investing-garden/
 ├── app/
 │   ├── api/
-│   │   ├── backup/
-│   │   ├── journal/
-│   │   ├── learning/
-│   │   ├── market/
-│   │   │   └── history/
+│   │   ├── auth/           # login, logout, session
+│   │   ├── backup/         # export/restore
+│   │   ├── journal/        # journal CRUD
+│   │   ├── learning/       # learning notes CRUD
+│   │   ├── market/         # quotes, history, signals
 │   │   ├── portfolio/
-│   │   │   ├── holdings/
-│   │   │   └── snapshots/
-│   │   ├── resources/
-│   │   ├── settings/
-│   │   └── stats/
+│   │   │   ├── holdings/   # holdings CRUD
+│   │   │   ├── snapshots/  # portfolio snapshots
+│   │   │   └── trades/     # trade history CRUD
+│   │   ├── resources/      # resources CRUD
+│   │   ├── settings/       # site settings
+│   │   └── stats/          # analytics
 │   ├── globals.css
 │   ├── layout.tsx
 │   ├── page.tsx
 │   └── providers.tsx
 ├── components/
+│   ├── features/
+│   │   ├── dashboard/      # DashboardSection
+│   │   ├── holdings/       # HoldingsSection
+│   │   └── journal/        # JournalSection
 │   ├── AuthControls.tsx
+│   ├── BackupRestore.tsx
 │   ├── EntryCard.tsx
 │   ├── EntryModal.tsx
+│   ├── FiftyTwoWeekRange.tsx
 │   ├── HoldingCard.tsx
 │   ├── KnowledgeModal.tsx
 │   ├── KnowledgeSection.tsx
 │   ├── MarketPrice.tsx
-│   ├── MarketSparkline.tsx
 │   ├── Section.tsx
-│   └── StatsPanel.tsx
+│   └── TradeHistory.tsx
 ├── lib/
-│   ├── admin-client.tsx
-│   ├── auth.ts
-│   ├── portfolio.ts
-│   └── storage.ts
+│   ├── data/               # client-side data hooks (SWR)
+│   ├── admin-client.tsx    # admin context provider
+│   ├── auth.ts             # session signing, credentials
+│   ├── audit.ts            # audit logging
+│   ├── logger.ts           # structured logging
+│   ├── migrations.js       # database migrations
+│   ├── portfolio.ts        # holdings, trades, snapshots, settings
+│   ├── rate-limit.ts       # rate limiting
+│   ├── storage.ts          # journal/learning/resources storage
+│   └── validation.ts       # input validation
+├── services/
+│   └── signal-engine/      # FastAPI momentum microservice
+├── k8s/
+│   └── signal-engine/      # Kubernetes deployment
 └── public/
 ```
 
 ## API Endpoints
 
-All endpoints support JSON payloads:
+### Auth
+- `POST /api/auth/login` — Authenticate with credentials
+- `POST /api/auth/logout` — Clear session
+- `GET /api/auth/session` — Check session status (with auto-rotation)
 
 ### Journal
-- `GET /api/journal` - List all journal entries
-- `POST /api/journal` - Create a new entry
-- `GET /api/journal/[id]` - Get a specific entry
-- `PUT /api/journal/[id]` - Update an entry
-- `DELETE /api/journal/[id]` - Delete an entry
+- `GET /api/journal` — List all journal entries
+- `POST /api/journal` — Create a new entry
+- `GET /api/journal/[id]` — Get a specific entry
+- `PUT /api/journal/[id]` — Update an entry
+- `DELETE /api/journal/[id]` — Delete an entry
 
-### Knowledge (learning + resources)
-- `GET /api/learning` - List learning notes
-- `POST /api/learning` - Create a learning note
-- `GET /api/resources` - List resources
-- `POST /api/resources` - Create a resource
+### Knowledge
+- `GET /api/learning` — List learning notes
+- `POST /api/learning` — Create a learning note
+- `PUT /api/learning/[id]` — Update a learning note
+- `DELETE /api/learning/[id]` — Delete a learning note
+- `GET /api/resources` — List resources
+- `POST /api/resources` — Create a resource
+- `PUT /api/resources/[id]` — Update a resource
+- `DELETE /api/resources/[id]` — Delete a resource
 
 ### Portfolio
-- `GET /api/portfolio/snapshots` - List portfolio snapshots
-- `POST /api/portfolio/snapshots` - Create/update a daily snapshot
-- `GET /api/portfolio/holdings` - List holdings
-- `POST /api/portfolio/holdings` - Add a holding
-- `DELETE /api/portfolio/holdings/[id]` - Remove a holding
+- `GET /api/portfolio/holdings` — List holdings
+- `POST /api/portfolio/holdings` — Track a new symbol
+- `PUT /api/portfolio/holdings/[id]` — Update a holding
+- `DELETE /api/portfolio/holdings/[id]` — Remove a holding
+- `GET /api/portfolio/trades` — List trades
+- `POST /api/portfolio/trades` — Log a trade (auto-recalculates holding)
+- `PATCH /api/portfolio/trades/[id]` — Edit a trade
+- `DELETE /api/portfolio/trades/[id]` — Remove a trade (auto-recalculates holding)
+- `GET /api/portfolio/snapshots` — List portfolio snapshots
+- `POST /api/portfolio/snapshots` — Record a daily snapshot
 
-### Settings + Analytics
-- `GET /api/settings` - Site overview settings
-- `PUT /api/settings` - Update overview settings
-- `GET /api/stats` - Analytics payload for the Stats dashboard
-- `GET /api/backup?format=json|zip` - Export all data
-- `POST /api/backup` - Restore from a backup file
+### Settings & Data
+- `GET /api/settings` — Site settings
+- `PUT /api/settings` — Update settings
+- `GET /api/stats` — Analytics payload
+- `GET /api/backup?format=json|zip` — Export all data
+- `POST /api/backup` — Restore from backup file
 
 ### Market Data
-- `GET /api/market?ticker=NVDA` - Live price lookup
-- `GET /api/market/history?ticker=NVDA` - Recent price candles
-- `GET /api/market/signal?ticker=NVDA` - Momentum signal from the Python microservice
+- `GET /api/market?ticker=MU` — Live price quote (with company name)
+- `GET /api/market/history?ticker=MU` — Recent price candles
+- `GET /api/market/signal?ticker=MU` — Momentum signal from Python microservice
 
+## Signal Engine Microservice
 
-## Python Signal Engine Microservice
+An optional FastAPI service that computes technical sentiment scores from recent prices.
 
-A good service to add is a **Signal Engine** that computes a fast technical sentiment score from recent prices.
-
-### Why this service
-
-- Isolated compute logic (easy to iterate independently from the Next.js app)
-- Reusable for dashboards, alerts, and future bots
-- Lightweight enough to autoscale independently
-
-### Local service run
+### Local run
 
 ```bash
 cd services/signal-engine
@@ -198,18 +224,25 @@ uvicorn app.main:app --reload --port 8000
 
 ### Kubernetes deployment
 
-Build and push your image, then deploy:
-
 ```bash
 docker build -t ghcr.io/<your-org>/investing-garden-signal-engine:latest services/signal-engine
 docker push ghcr.io/<your-org>/investing-garden-signal-engine:latest
 kubectl apply -f k8s/signal-engine/deployment.yaml
 ```
 
-In cluster, the app route can call:
+## Data Validation
 
-```
-http://signal-engine.default.svc.cluster.local:8000/v1/signals/momentum
+- Tickers: 1-10 characters (letters, numbers, `.` or `-`)
+- Trade dates: `YYYY-MM-DD` format
+- Resource URLs: must start with `http://` or `https://`
+- Backup files: JSON or ZIP, max 5MB
+
+## Quality Checks
+
+```bash
+pnpm run lint
+pnpm run typecheck
+pnpm run test
 ```
 
 ## License
@@ -218,12 +251,4 @@ This project is open source and available under the MIT License.
 
 ## Disclaimer
 
-Nothing on this website is financial advice. This is a personal learning project for documenting an investing journey with a small amount of capital.
-
-## Quality checks
-
-```bash
-pnpm run lint
-pnpm run typecheck
-pnpm run test
-```
+Nothing on this website is financial advice. This is a personal learning project for documenting an investing journey.

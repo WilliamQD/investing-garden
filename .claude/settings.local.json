@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc:*)",
-      "Bash(node --import ./lib/test-setup.mjs --test \"lib/**/*.test.js\")"
+      "Bash(node --import ./lib/test-setup.mjs --test \"lib/**/*.test.js\")",
+      "Bash(grep -E \"\\\\.\\(mjs|json|js\\)$\")",
+      "Bash(grep -r \"StatsPanel\\\\|MarketSparkline\\\\|portfolio-metrics\\\\|holdings-import\" c:Usersw4343Githubinvesting-garden --include=*.ts --include=*.tsx --include=*.js)",
+      "Bash(rm -f PERFORMANCE_REPORT.md components/StatsPanel.tsx public/file.svg public/globe.svg public/next.svg public/window.svg public/vercel.svg public/pr-screens/dashboard-after.png)",
+      "Bash(rmdir public/pr-screens)"
     ]
   }
 }
