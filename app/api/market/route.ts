@@ -5,6 +5,7 @@ import { normalizeTicker } from '@/lib/validation';
 
 type QuotePayload = {
   price: number;
+  name?: string;
   currency?: string;
   changePercent?: number;
   updatedAt: string;
@@ -15,6 +16,7 @@ type QuotePayload = {
 type TwelveDataQuote = {
   status?: string;
   message?: string;
+  name?: string;
   price?: string | number;
   close?: string | number;
   previous_close?: string | number;
@@ -155,6 +157,7 @@ export async function GET(request: Request) {
     const fiftyTwoWeekHigh = parseNumeric(data.fifty_two_week?.high);
     const payload: QuotePayload = {
       price: resolvedPrice,
+      name: typeof data.name === 'string' && data.name.trim() ? data.name.trim() : undefined,
       currency: data.currency,
       changePercent: parseNumeric(data.percent_change),
       updatedAt: resolveUpdatedAt(data),

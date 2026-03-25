@@ -363,6 +363,40 @@ export async function recalculateHolding(ticker: string): Promise<Holding | null
   }
 }
 
+export async function replaceAllHoldings(holdings: Holding[]): Promise<void> {
+  await ensureTables();
+  await sql`DELETE FROM portfolio_holdings`;
+  for (const h of holdings) {
+    await sql`
+      INSERT INTO portfolio_holdings (id, ticker, label, quantity, purchase_price, created_at)
+      VALUES (${h.id}, ${h.ticker}, ${h.label ?? null}, ${h.quantity ?? null}, ${h.purchasePrice ?? null}, ${h.createdAt})
+    `;
+  }
+}
+
+export async function replaceAllTrades(trades: PortfolioTrade[]): Promise<void> {
+  await ensureTables();
+  await sql`DELETE FROM portfolio_trades`;
+  for (const t of trades) {
+    await sql`
+      INSERT INTO portfolio_trades (id, ticker, action, quantity, price, trade_date, gain_loss, notes, created_at)
+      VALUES (${t.id}, ${t.ticker}, ${t.action}, ${t.quantity}, ${t.price}, ${t.tradeDate}, ${t.gainLoss ?? null}, ${t.notes ?? null}, ${t.createdAt})
+    `;
+  }
+}
+
+export async function replaceAllSnapshots(snapshots: PortfolioSnapshot[]): Promise<void> {
+  await ensureTables();
+  await sql`DELETE FROM portfolio_snapshots`;
+  for (const s of snapshots) {
+    await sql`
+      INSERT INTO portfolio_snapshots (snapshot_date, value, updated_at)
+      VALUES (${s.date}, ${s.value}, ${s.updatedAt})
+      ON CONFLICT (snapshot_date) DO UPDATE SET value = ${s.value}, updated_at = ${s.updatedAt}
+    `;
+  }
+}
+
 export async function updateSiteSettings(
   settings: Partial<SiteSettings>
 ): Promise<SiteSettings> {

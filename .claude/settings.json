@@ -4,7 +4,9 @@
       "Bash(npm install:*)",
       "Bash(npm test:*)",
       "Bash(npx pnpm:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Read(//d//**)",
+      "Bash(npx next:*)"
     ]
   }
 }

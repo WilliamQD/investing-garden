@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import FiftyTwoWeekRange from './FiftyTwoWeekRange';
 import MarketPrice, { MarketData } from './MarketPrice';
@@ -19,12 +19,6 @@ interface HoldingCardProps {
   quote?: MarketData;
   onQuoteUpdate?: (ticker: string, data: MarketData) => void;
   onRemove: (id: string) => Promise<void> | void;
-  onUpdateHolding: (
-    id: string,
-    label: string,
-    quantity: number | null,
-    purchasePrice: number | null
-  ) => Promise<void>;
 }
 
 export default function HoldingCard({
@@ -33,19 +27,10 @@ export default function HoldingCard({
   quote,
   onQuoteUpdate,
   onRemove,
-  onUpdateHolding,
 }: HoldingCardProps) {
   const [refreshToken, setRefreshToken] = useState(0);
-  const [isEditing, setIsEditing] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [draftLabel, setDraftLabel] = useState(holding.label ?? '');
-  const [isSaving, setIsSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-
-  useEffect(() => {
-    setDraftLabel(holding.label ?? '');
-  }, [holding.label]);
 
   const handleRemove = async () => {
     try {
@@ -54,25 +39,6 @@ export default function HoldingCard({
     } catch (error) {
       console.error('Failed to remove holding', error);
       setIsDeleting(false);
-    }
-  };
-
-  const handleSave = async () => {
-    try {
-      setIsSaving(true);
-      setErrorMessage('');
-      await onUpdateHolding(
-        holding.id,
-        draftLabel,
-        holding.quantity ?? null,
-        holding.purchasePrice ?? null
-      );
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Failed to update holding label', error);
-      setErrorMessage('Unable to update label.');
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -137,52 +103,16 @@ export default function HoldingCard({
           : ''
       : '';
 
+  const companyName = quote?.name;
+
   return (
     <article className="holding-card">
       <div className="holding-header">
         <div>
           <p className="holding-ticker">{holding.ticker}</p>
-          {isEditing ? (
-            <div className="holding-edit">
-              <label>
-                Label
-                <input
-                  type="text"
-                  value={draftLabel}
-                  onChange={(event) => setDraftLabel(event.target.value)}
-                  placeholder="Optional label"
-                  aria-label={`Edit label for ${holding.ticker}`}
-                />
-              </label>
-              {errorMessage && <p className="holding-edit-error">{errorMessage}</p>}
-              <div className="holding-edit-actions">
-                <button
-                  className="holding-edit-save"
-                  type="button"
-                  onClick={() => void handleSave()}
-                  disabled={isSaving}
-                >
-                  {isSaving ? 'Saving...' : 'Save'}
-                </button>
-                <button
-                  className="holding-edit-cancel"
-                  type="button"
-                  onClick={() => {
-                    setDraftLabel(holding.label ?? '');
-                    setErrorMessage('');
-                    setIsEditing(false);
-                  }}
-                  disabled={isSaving}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <p className={`holding-label${holding.label ? '' : ' holding-label-muted'}`}>
-              {holding.label || 'No label yet'}
-            </p>
-          )}
+          <p className={`holding-label${companyName ? '' : ' holding-label-muted'}`}>
+            {companyName || 'Loading...'}
+          </p>
         </div>
         <div className="holding-actions">
           <button
@@ -191,24 +121,11 @@ export default function HoldingCard({
             type="button"
             title={`Refresh ${holding.ticker} market data`}
             aria-label={`Refresh ${holding.ticker} market data`}
-            disabled={isSaving}
           >
             Refresh
           </button>
           {canEdit && (
             <>
-              <button
-                className="holding-edit-toggle"
-                onClick={() => {
-                  setDraftLabel(holding.label ?? '');
-                  setErrorMessage('');
-                  setIsEditing(prev => !prev);
-                }}
-                type="button"
-                disabled={isSaving}
-              >
-                {isEditing ? 'Close' : 'Edit label'}
-              </button>
               {isConfirming ? (
                 <>
                   <button
@@ -236,7 +153,7 @@ export default function HoldingCard({
                   className="holding-remove"
                   onClick={() => setIsConfirming(true)}
                   type="button"
-                  disabled={isSaving || isDeleting}
+                  disabled={isDeleting}
                 >
                   Remove
                 </button>

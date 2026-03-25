@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(node --import ./lib/test-setup.mjs --test \"lib/**/*.test.js\")"
+    ]
+  }
+}

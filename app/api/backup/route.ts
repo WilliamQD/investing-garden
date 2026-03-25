@@ -5,6 +5,17 @@ import { getAuthorizedSession } from '@/lib/auth';
 import { logAuditEvent } from '@/lib/audit';
 import type { Entry } from '@/lib/storage';
 import { storage } from '@/lib/storage';
+import {
+  getHoldings,
+  getPortfolioSnapshots,
+  getPortfolioTrades,
+  getSiteSettings,
+  replaceAllHoldings,
+  replaceAllSnapshots,
+  replaceAllTrades,
+  updateSiteSettings,
+} from '@/lib/portfolio';
+import type { Holding, PortfolioSnapshot, PortfolioTrade, SiteSettings } from '@/lib/portfolio';
 import { logError, logInfo } from '@/lib/logger';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { normalizeBackupEntry } from '@/lib/validation';
@@ -13,6 +24,10 @@ type BackupPayload = {
   journal: Entry[];
   learning: Entry[];
   resources: Entry[];
+  holdings?: Holding[];
+  trades?: PortfolioTrade[];
+  snapshots?: PortfolioSnapshot[];
+  settings?: SiteSettings;
 };
 
 const INVALID_FORMAT_MESSAGE =
@@ -21,7 +36,6 @@ const MISSING_KEYS_MESSAGE =
   'Backup must include journal, learning, and resources keys.';
 const MAX_BACKUP_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_BACKUP_FORM_BYTES = MAX_BACKUP_FILE_BYTES + 1024 * 1024;
-// Limit restore size to avoid excessive load or long-running transactions.
 const MAX_BACKUP_ENTRIES = 5000;
 const INVALID_ENTRIES_MESSAGE = (count: number) =>
   `Backup contains ${count} invalid ${count === 1 ? 'entry' : 'entries'}.`;
@@ -68,6 +82,41 @@ const validateEntryIds = (entries: Entry[]) => {
   return null;
 };
 
+const normalizeHoldings = (raw: unknown): Holding[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (h): h is Holding =>
+      h && typeof h === 'object' && typeof h.id === 'string' && typeof h.ticker === 'string'
+  );
+};
+
+const normalizeTrades = (raw: unknown): PortfolioTrade[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (t): t is PortfolioTrade =>
+      t &&
+      typeof t === 'object' &&
+      typeof t.id === 'string' &&
+      typeof t.ticker === 'string' &&
+      (t.action === 'buy' || t.action === 'sell')
+  );
+};
+
+const normalizeSnapshots = (raw: unknown): PortfolioSnapshot[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (s): s is PortfolioSnapshot =>
+      s && typeof s === 'object' && typeof s.date === 'string' && typeof s.value === 'number'
+  );
+};
+
+const normalizeSettings = (raw: unknown): SiteSettings | undefined => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const s = raw as Record<string, unknown>;
+  if (typeof s.headline !== 'string' || typeof s.summary !== 'string') return undefined;
+  return raw as SiteSettings;
+};
+
 const normalizeBackupPayload = (payload: Record<string, unknown>) => {
   if (!hasRequiredKeys(payload)) {
     return { error: MISSING_KEYS_MESSAGE };
@@ -95,6 +144,10 @@ const normalizeBackupPayload = (payload: Record<string, unknown>) => {
       journal: journalResult.entries,
       learning: learningResult.entries,
       resources: resourcesResult.entries,
+      holdings: normalizeHoldings(payload.holdings),
+      trades: normalizeTrades(payload.trades),
+      snapshots: normalizeSnapshots(payload.snapshots),
+      settings: normalizeSettings(payload.settings),
     } satisfies BackupPayload,
   };
 };
@@ -120,10 +173,16 @@ export async function GET(request: Request) {
     );
   }
 
-  const journal = await storage.getAll('journal');
-  const learning = await storage.getAll('learning');
-  const resources = await storage.getAll('resources');
-  const payload = { journal, learning, resources };
+  const [journal, learning, resources, holdings, trades, snapshots, settings] = await Promise.all([
+    storage.getAll('journal'),
+    storage.getAll('learning'),
+    storage.getAll('resources'),
+    getHoldings(),
+    getPortfolioTrades(),
+    getPortfolioSnapshots(),
+    getSiteSettings(),
+  ]);
+  const payload: BackupPayload = { journal, learning, resources, holdings, trades, snapshots, settings };
   const { searchParams } = new URL(request.url);
   const format = searchParams.get('format');
 
@@ -132,6 +191,10 @@ export async function GET(request: Request) {
     zip.file('journal.json', JSON.stringify(journal, null, 2));
     zip.file('learning.json', JSON.stringify(learning, null, 2));
     zip.file('resources.json', JSON.stringify(resources, null, 2));
+    zip.file('holdings.json', JSON.stringify(holdings, null, 2));
+    zip.file('trades.json', JSON.stringify(trades, null, 2));
+    zip.file('snapshots.json', JSON.stringify(snapshots, null, 2));
+    zip.file('settings.json', JSON.stringify(settings, null, 2));
     const content = await zip.generateAsync({ type: 'uint8array' });
     const arrayBuffer = content.buffer.slice(
       content.byteOffset,
@@ -207,6 +270,10 @@ export async function POST(request: Request) {
       const journalJson = await zip.file('journal.json')?.async('string');
       const learningJson = await zip.file('learning.json')?.async('string');
       const resourcesJson = await zip.file('resources.json')?.async('string');
+      const holdingsJson = await zip.file('holdings.json')?.async('string');
+      const tradesJson = await zip.file('trades.json')?.async('string');
+      const snapshotsJson = await zip.file('snapshots.json')?.async('string');
+      const settingsJson = await zip.file('settings.json')?.async('string');
       const parsedJournal = journalJson ? parseJson(journalJson) : [];
       const parsedLearning = learningJson ? parseJson(learningJson) : [];
       const parsedResources = resourcesJson ? parseJson(resourcesJson) : [];
@@ -221,6 +288,10 @@ export async function POST(request: Request) {
         journal: parsedJournal,
         learning: parsedLearning,
         resources: parsedResources,
+        holdings: holdingsJson ? parseJson(holdingsJson) : undefined,
+        trades: tradesJson ? parseJson(tradesJson) : undefined,
+        snapshots: snapshotsJson ? parseJson(snapshotsJson) : undefined,
+        settings: settingsJson ? parseJson(settingsJson) : undefined,
       };
     } else {
       const text = new TextDecoder().decode(buffer);
@@ -264,15 +335,41 @@ export async function POST(request: Request) {
 
   try {
     const counts = await storage.replaceAllInTransaction(normalized.data);
+
+    // Restore portfolio data if present
+    const portfolioResults = { holdings: 0, trades: 0, snapshots: 0, settings: false };
+    if (normalized.data.holdings && normalized.data.holdings.length > 0) {
+      await replaceAllHoldings(normalized.data.holdings);
+      portfolioResults.holdings = normalized.data.holdings.length;
+    }
+    if (normalized.data.trades && normalized.data.trades.length > 0) {
+      await replaceAllTrades(normalized.data.trades);
+      portfolioResults.trades = normalized.data.trades.length;
+    }
+    if (normalized.data.snapshots && normalized.data.snapshots.length > 0) {
+      await replaceAllSnapshots(normalized.data.snapshots);
+      portfolioResults.snapshots = normalized.data.snapshots.length;
+    }
+    if (normalized.data.settings) {
+      await updateSiteSettings(normalized.data.settings);
+      portfolioResults.settings = true;
+    }
+
     logInfo('backup_restore_completed', {
       journalCount: counts.journalCount,
       learningCount: counts.learningCount,
       resourceCount: counts.resourceCount,
+      holdingsCount: portfolioResults.holdings,
+      tradesCount: portfolioResults.trades,
+      snapshotsCount: portfolioResults.snapshots,
+      settingsRestored: portfolioResults.settings,
     });
     await logAuditEvent('backup_restored', session, {
       journalCount: counts.journalCount,
       learningCount: counts.learningCount,
       resourceCount: counts.resourceCount,
+      holdingsCount: portfolioResults.holdings,
+      tradesCount: portfolioResults.trades,
     });
     return NextResponse.json({ success: true });
   } catch (error) {

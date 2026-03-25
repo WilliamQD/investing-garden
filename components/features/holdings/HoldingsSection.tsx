@@ -13,7 +13,6 @@ import {
   SiteSettings,
   addHolding,
   removeHolding,
-  updateHolding,
 } from '@/lib/data/dashboard';
 
 type HoldingsSectionProps = {
@@ -34,7 +33,6 @@ export default function HoldingsSection({
   onPortfolioValueChange,
 }: HoldingsSectionProps) {
   const [newTicker, setNewTicker] = useState('');
-  const [newLabel, setNewLabel] = useState('');
   const [holdingsQuery, setHoldingsQuery] = useState('');
   const [quotes, setQuotes] = useState<Record<string, MarketData>>({});
   const filteredHoldings = useMemo(() => {
@@ -43,9 +41,9 @@ export default function HoldingsSection({
     return holdings.filter(
       holding =>
         holding.ticker.toLowerCase().includes(query) ||
-        holding.label?.toLowerCase().includes(query)
+        quotes[holding.ticker]?.name?.toLowerCase().includes(query)
     );
-  }, [holdings, holdingsQuery]);
+  }, [holdings, holdingsQuery, quotes]);
   const handleQuoteUpdate = useCallback((ticker: string, data: MarketData) => {
     setQuotes(prev => ({ ...prev, [ticker]: data }));
   }, []);
@@ -131,7 +129,6 @@ export default function HoldingsSection({
       }
       const holding = await addHolding({
         ticker: newTicker.trim(),
-        label: newLabel.trim() || undefined,
       });
       mutateHoldings(current => {
         const existing = current ?? [];
@@ -141,7 +138,6 @@ export default function HoldingsSection({
         return [holding, ...existing];
       }, { revalidate: false });
       setNewTicker('');
-      setNewLabel('');
       onStatusMessage('');
     } catch (error) {
       console.error('Error adding holding:', error);
@@ -170,34 +166,6 @@ export default function HoldingsSection({
     }
   };
 
-  const handleUpdateHolding = async (
-    id: string,
-    label: string,
-    quantity: number | null,
-    purchasePrice: number | null
-  ) => {
-    try {
-      if (!canWrite) {
-        onStatusMessage('Sign in as admin to update holding details.');
-        throw new Error('Unauthorized');
-      }
-      const updated = await updateHolding({ id, label, quantity, purchasePrice });
-      mutateHoldings(
-        current => (current ?? []).map(item => (item.id === updated.id ? updated : item)),
-        { revalidate: false }
-      );
-      onStatusMessage('');
-    } catch (error) {
-      console.error('Error updating holding details:', error);
-      if (error instanceof ApiError) {
-        onStatusMessage(error.message);
-      } else {
-        onStatusMessage('Unable to update holding details right now.');
-      }
-      throw error;
-    }
-  };
-
   return (
     <section className="holdings-section">
       <div className="holdings-header">
@@ -218,15 +186,6 @@ export default function HoldingsSection({
                 onChange={(event) => setNewTicker(event.target.value.toUpperCase())}
                 placeholder="AAPL"
                 required
-              />
-            </label>
-            <label>
-              Label (optional)
-              <input
-                type="text"
-                value={newLabel}
-                onChange={(event) => setNewLabel(event.target.value)}
-                placeholder="Core position"
               />
             </label>
             <button type="submit" className="btn-primary">Track symbol</button>
@@ -311,7 +270,7 @@ export default function HoldingsSection({
               type="text"
               value={holdingsQuery}
               onChange={(event) => setHoldingsQuery(event.target.value)}
-              placeholder="Filter by ticker or label"
+              placeholder="Filter by ticker or name"
             />
           </label>
           <p className="holdings-count">
@@ -329,7 +288,6 @@ export default function HoldingsSection({
               quote={quotes[holding.ticker]}
               onQuoteUpdate={handleQuoteUpdate}
               onRemove={handleRemoveHolding}
-              onUpdateHolding={handleUpdateHolding}
             />
           ))
         ) : (

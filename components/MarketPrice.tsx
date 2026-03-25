@@ -10,6 +10,7 @@ interface MarketPriceProps {
 
 export interface MarketData {
   price: number;
+  name?: string;
   currency?: string;
   changePercent?: number;
   updatedAt?: string;
@@ -68,6 +69,7 @@ export default function MarketPrice({ ticker, refreshToken, onData }: MarketPric
           const fiftyTwoWeekHigh = Number(result.fiftyTwoWeekHigh);
           const nextData: MarketData = {
             price,
+            name: typeof result.name === 'string' && result.name ? result.name : undefined,
             currency: typeof result.currency === 'string' ? result.currency : undefined,
             changePercent: Number.isFinite(changePercent) ? changePercent : undefined,
             updatedAt: typeof result.updatedAt === 'string' ? result.updatedAt : undefined,
