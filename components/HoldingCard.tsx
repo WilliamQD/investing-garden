@@ -19,6 +19,7 @@ interface HoldingCardProps {
   quote?: MarketData;
   onQuoteUpdate?: (ticker: string, data: MarketData) => void;
   onRemove: (id: string) => Promise<void> | void;
+  refreshToken?: number;
 }
 
 export default function HoldingCard({
@@ -27,8 +28,8 @@ export default function HoldingCard({
   quote,
   onQuoteUpdate,
   onRemove,
+  refreshToken,
 }: HoldingCardProps) {
-  const [refreshToken, setRefreshToken] = useState(0);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -115,15 +116,6 @@ export default function HoldingCard({
           </p>
         </div>
         <div className="holding-actions">
-          <button
-            className="holding-refresh"
-            onClick={() => setRefreshToken(prev => prev + 1)}
-            type="button"
-            title={`Refresh ${holding.ticker} market data`}
-            aria-label={`Refresh ${holding.ticker} market data`}
-          >
-            Refresh
-          </button>
           {canEdit && (
             <>
               {isConfirming ? (

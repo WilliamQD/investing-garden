@@ -14,6 +14,7 @@ export interface MarketData {
   currency?: string;
   changePercent?: number;
   updatedAt?: string;
+  fetchedAt?: string;
   stale?: boolean;
   cached?: boolean;
   fiftyTwoWeekLow?: number;
@@ -73,6 +74,7 @@ export default function MarketPrice({ ticker, refreshToken, onData }: MarketPric
             currency: typeof result.currency === 'string' ? result.currency : undefined,
             changePercent: Number.isFinite(changePercent) ? changePercent : undefined,
             updatedAt: typeof result.updatedAt === 'string' ? result.updatedAt : undefined,
+            fetchedAt: typeof result.fetchedAt === 'string' ? result.fetchedAt : undefined,
             stale: Boolean(result.stale),
             cached: Boolean(result.cached),
             fiftyTwoWeekLow: Number.isFinite(fiftyTwoWeekLow) ? fiftyTwoWeekLow : undefined,
@@ -117,8 +119,9 @@ export default function MarketPrice({ ticker, refreshToken, onData }: MarketPric
       ? `${data.changePercent > 0 ? '+' : ''}${data.changePercent.toFixed(2)}%`
       : null;
 
-  const updatedLabel = data.updatedAt
-    ? new Date(data.updatedAt).toLocaleString('en-US', {
+  const displayTime = data.fetchedAt ?? data.updatedAt;
+  const updatedLabel = displayTime
+    ? new Date(displayTime).toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
       hour: 'numeric',

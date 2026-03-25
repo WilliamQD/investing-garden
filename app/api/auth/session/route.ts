@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getAuthorizedSession, getSessionCookieName, getSessionRotationCookie, SESSION_TTL_SECONDS } from '@/lib/auth';
+import { getAuthorizedSession, getSessionCookieName, getSessionRotationCookie } from '@/lib/auth';
 
 export async function GET() {
   const session = await getAuthorizedSession();
@@ -23,7 +23,6 @@ export async function GET() {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: SESSION_TTL_SECONDS,
     });
   }
   response.headers.set('Cache-Control', 'no-store');

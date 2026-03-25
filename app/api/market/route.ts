@@ -9,6 +9,7 @@ type QuotePayload = {
   currency?: string;
   changePercent?: number;
   updatedAt: string;
+  fetchedAt: string;
   fiftyTwoWeekLow?: number;
   fiftyTwoWeekHigh?: number;
 };
@@ -161,6 +162,7 @@ export async function GET(request: Request) {
       currency: data.currency,
       changePercent: parseNumeric(data.percent_change),
       updatedAt: resolveUpdatedAt(data),
+      fetchedAt: new Date().toISOString(),
       fiftyTwoWeekLow,
       fiftyTwoWeekHigh,
     };

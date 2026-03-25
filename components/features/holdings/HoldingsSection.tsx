@@ -34,6 +34,7 @@ export default function HoldingsSection({
 }: HoldingsSectionProps) {
   const [newTicker, setNewTicker] = useState('');
   const [holdingsQuery, setHoldingsQuery] = useState('');
+  const [refreshToken, setRefreshToken] = useState(0);
   const [quotes, setQuotes] = useState<Record<string, MarketData>>({});
   const filteredHoldings = useMemo(() => {
     if (!holdingsQuery.trim()) return holdings;
@@ -273,6 +274,15 @@ export default function HoldingsSection({
               placeholder="Filter by ticker or name"
             />
           </label>
+          <button
+            className="holding-refresh"
+            onClick={() => setRefreshToken(prev => prev + 1)}
+            type="button"
+            title="Refresh all market data"
+            aria-label="Refresh all market data"
+          >
+            Refresh all
+          </button>
           <p className="holdings-count">
             {filteredHoldings.length} of {holdings.length} holdings
           </p>
@@ -288,6 +298,7 @@ export default function HoldingsSection({
               quote={quotes[holding.ticker]}
               onQuoteUpdate={handleQuoteUpdate}
               onRemove={handleRemoveHolding}
+              refreshToken={refreshToken}
             />
           ))
         ) : (
