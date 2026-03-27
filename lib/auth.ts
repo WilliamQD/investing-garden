@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies, headers } from 'next/headers';
+import { verifyPassword } from '@/lib/password-utils';
 
 
 const MIN_SECRET_LENGTH = 16;
@@ -48,7 +49,7 @@ const normalizeCredential = (credential: unknown): AdminCredential | null => {
     ? (credential as AdminCredential).password
     : '';
   if (!username || !password) return null;
-  if (password.length < MIN_PASSWORD_LENGTH) {
+  if (!password.startsWith('scrypt:') && password.length < MIN_PASSWORD_LENGTH) {
     console.warn(`Admin credential for "${username}" has password shorter than ${MIN_PASSWORD_LENGTH} characters; skipping.`);
     return null;
   }
@@ -246,7 +247,7 @@ export const verifyCredentials = (username: string, password: string) => {
     if (!safeEquals(credential.username, normalizedUsername)) {
       return false;
     }
-    return safeEquals(credential.password, password);
+    return verifyPassword(password, credential.password);
   });
   if (!credential) return null;
   return { username: credential.username, role: credential.role };
@@ -296,7 +297,7 @@ export const getAuthorizedSession = async () => {
   const token = await getHeaderToken();
   if (!token) return null;
   const matchesTokenCredential = adminCredentials.find(credential =>
-    safeEquals(credential.password, token)
+    verifyPassword(token, credential.password)
   );
   if (!matchesTokenCredential) return null;
   const permissions = getRolePermissions(matchesTokenCredential.role);
