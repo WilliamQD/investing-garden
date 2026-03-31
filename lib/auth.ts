@@ -1,7 +1,8 @@
 import 'server-only';
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { cookies, headers } from 'next/headers';
+import { safeEquals, verifyPassword } from '@/lib/password-utils';
 
 
 const MIN_SECRET_LENGTH = 16;
@@ -93,13 +94,6 @@ const canIssueSession = sessionSecret.length >= MIN_SECRET_LENGTH;
 
 const signSession = (value: string) =>
   createHmac('sha256', sessionSecret).update(value).digest('hex');
-
-const safeEquals = (left: string, right: string) => {
-  const leftBuffer = Buffer.from(left);
-  const rightBuffer = Buffer.from(right);
-  if (leftBuffer.length !== rightBuffer.length) return false;
-  return timingSafeEqual(leftBuffer, rightBuffer);
-};
 
 const toSessionCookie = (username: string, role: Role, expiresAt: number) => {
   const payload = `${username}:${role}:${expiresAt}`;
@@ -239,16 +233,16 @@ export const clearLoginAttempts = async () => {
   loginAttempts.delete(ip);
 };
 
-export const verifyCredentials = (username: string, password: string) => {
+export const verifyCredentials = async (username: string, password: string) => {
   const normalizedUsername = username.trim();
   if (!normalizedUsername || !password) return null;
-  const credential = adminCredentials.find(credential => {
-    if (!safeEquals(credential.username, normalizedUsername)) {
-      return false;
-    }
-    return safeEquals(credential.password, password);
-  });
+
+  const credential = adminCredentials.find(cred => safeEquals(cred.username, normalizedUsername));
   if (!credential) return null;
+
+  const isValid = await verifyPassword(password, credential.password);
+  if (!isValid) return null;
+
   return { username: credential.username, role: credential.role };
 };
 
