@@ -3,6 +3,8 @@ import 'server-only';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies, headers } from 'next/headers';
 
+import { verifyPassword } from './password-utils';
+
 
 const MIN_SECRET_LENGTH = 16;
 const MIN_PASSWORD_LENGTH = 8;
@@ -239,17 +241,29 @@ export const clearLoginAttempts = async () => {
   loginAttempts.delete(ip);
 };
 
-export const verifyCredentials = (username: string, password: string) => {
+export const verifyCredentials = async (username: string, password: string) => {
   const normalizedUsername = username.trim();
   if (!normalizedUsername || !password) return null;
-  const credential = adminCredentials.find(credential => {
+
+  for (const credential of adminCredentials) {
     if (!safeEquals(credential.username, normalizedUsername)) {
-      return false;
+      continue;
     }
-    return safeEquals(credential.password, password);
-  });
-  if (!credential) return null;
-  return { username: credential.username, role: credential.role };
+
+    if (credential.password.startsWith('scrypt:')) {
+      if (await verifyPassword(password, credential.password)) {
+        return { username: credential.username, role: credential.role };
+      }
+    } else {
+      if (safeEquals(credential.password, password)) {
+        console.warn(
+          `[SECURITY] Plaintext password used for user "${credential.username}". Please migrate to scrypt hash.`
+        );
+        return { username: credential.username, role: credential.role };
+      }
+    }
+  }
+  return null;
 };
 
 export const createSessionCookieValue = (username: string, role: Role) => {
@@ -295,9 +309,22 @@ export const getAuthorizedSession = async () => {
 
   const token = await getHeaderToken();
   if (!token) return null;
-  const matchesTokenCredential = adminCredentials.find(credential =>
-    safeEquals(credential.password, token)
-  );
+
+  let matchesTokenCredential = null;
+  for (const credential of adminCredentials) {
+    if (credential.password.startsWith('scrypt:')) {
+      if (await verifyPassword(token, credential.password)) {
+        matchesTokenCredential = credential;
+        break;
+      }
+    } else {
+      if (safeEquals(credential.password, token)) {
+        matchesTokenCredential = credential;
+        break;
+      }
+    }
+  }
+
   if (!matchesTokenCredential) return null;
   const permissions = getRolePermissions(matchesTokenCredential.role);
   return {
