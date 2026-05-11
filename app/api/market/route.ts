@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import '@/lib/env';
 
 import { logError } from '@/lib/logger';
 import { normalizeTicker } from '@/lib/validation';

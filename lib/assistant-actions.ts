@@ -1,4 +1,5 @@
 import 'server-only';
+import '@/lib/env';
 
 import { sql } from '@vercel/postgres';
 

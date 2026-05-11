@@ -1,4 +1,5 @@
 import 'server-only';
+import '@/lib/env';
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies, headers } from 'next/headers';
