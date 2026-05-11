@@ -4,7 +4,6 @@ import { getAuthorizedSession } from '@/lib/auth';
 import { logAuditEvent } from '@/lib/audit';
 import { addPortfolioTrade, getHoldings, getPortfolioTrades, recalculateHolding } from '@/lib/portfolio';
 import { checkRateLimit } from '@/lib/rate-limit';
-import { requireOwnerSession } from '@/lib/route-auth';
 import { normalizeTicker } from '@/lib/validation';
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -12,8 +11,6 @@ const VALID_ACTIONS = new Set(['buy', 'sell']);
 
 export async function GET() {
   try {
-    const owner = await requireOwnerSession();
-    if (!owner.ok) return owner.response;
     const trades = await getPortfolioTrades();
     return NextResponse.json(trades);
   } catch (error) {

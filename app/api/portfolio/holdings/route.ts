@@ -4,7 +4,6 @@ import { getAuthorizedSession } from '@/lib/auth';
 import { logAuditEvent } from '@/lib/audit';
 import { addHolding, getHoldings } from '@/lib/portfolio';
 import { checkRateLimit } from '@/lib/rate-limit';
-import { requireOwnerSession } from '@/lib/route-auth';
 import { normalizeLabel, normalizeTicker } from '@/lib/validation';
 
 const parseOptionalNumber = (
@@ -23,8 +22,6 @@ const parseOptionalNumber = (
 
 export async function GET() {
   try {
-    const owner = await requireOwnerSession();
-    if (!owner.ok) return owner.response;
     const holdings = await getHoldings();
     return NextResponse.json(holdings);
   } catch (error) {

@@ -6,62 +6,12 @@ import AuthControls from '@/components/AuthControls';
 import DashboardSection from '@/components/features/dashboard/DashboardSection';
 import JournalSection from '@/components/features/journal/JournalSection';
 import KnowledgeSection from '@/components/KnowledgeSection';
-import { useAdmin } from '@/lib/admin-client';
 
 type SectionKey = 'dashboard' | 'journal' | 'knowledge';
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState<SectionKey>('dashboard');
-  const { isAuthenticated, loading } = useAdmin();
   const currentYear = new Date().getFullYear();
-
-  if (loading || !isAuthenticated) {
-    return (
-      <>
-        <div className="bg-marble"></div>
-        <div className="bg-grid"></div>
-        <div className="bg-noise"></div>
-        <div className="bg-vines"></div>
-        <div className="bg-halo"></div>
-        <div className="bg-aurora"></div>
-
-        <header className="site-header">
-          <div className="logo">
-            Investing<span className="logo-dot">·</span><span className="logo-sub">Garden</span>
-          </div>
-          <AuthControls />
-        </header>
-
-        <main className="wrapper">
-          <section className="hero">
-            <div className="hero-left">
-              <p className="eyebrow">Owner workspace</p>
-              <h1>Private investing dashboard</h1>
-              <p className="hero-text">
-                Sign in as owner to view portfolio data, trade history, journal entries, and research notes.
-              </p>
-            </div>
-            <div className="hero-right">
-              <div className="stat-card">
-                <div className="stat-label">Access</div>
-                <div className="stat-value">{loading ? 'Checking' : 'Locked'}</div>
-                <div className="stat-sub">
-                  Personal investing data stays hidden until owner authentication succeeds.
-                </div>
-              </div>
-            </div>
-          </section>
-        </main>
-
-        <footer className="site-footer">
-          <p>© {currentYear} Investing Garden · Built by QD</p>
-          <p className="footer-sub">
-            Designed for long-term portfolio reflection, not a recommendation engine.
-          </p>
-        </footer>
-      </>
-    );
-  }
 
   return (
     <>

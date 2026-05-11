@@ -4,13 +4,10 @@ import { getAuthorizedSession } from '@/lib/auth';
 import { logAuditEvent } from '@/lib/audit';
 import { getPortfolioSnapshots, upsertPortfolioSnapshot } from '@/lib/portfolio';
 import { checkRateLimit } from '@/lib/rate-limit';
-import { requireOwnerSession } from '@/lib/route-auth';
 import { normalizeIsoDate } from '@/lib/validation';
 
 export async function GET() {
   try {
-    const owner = await requireOwnerSession();
-    if (!owner.ok) return owner.response;
     const snapshots = await getPortfolioSnapshots();
     return NextResponse.json(snapshots);
   } catch (error) {
