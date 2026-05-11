@@ -43,5 +43,8 @@ next-env.d.ts
 # data storage
 /data
 
+# local agent notes
+CLAUDE.md
+
 # old site backup
 /old_site
