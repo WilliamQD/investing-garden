@@ -5,7 +5,6 @@ import { logError, logInfo } from '@/lib/logger';
 
 type AuditSession = {
   username: string;
-  role: string;
   source?: string;
 };
 
@@ -18,7 +17,7 @@ export const logAuditEvent = async (
   logInfo('audit_event', {
     event,
     actor: session?.username ?? 'unknown',
-    role: session?.role ?? 'unknown',
+    role: 'owner',
     source: session?.source ?? 'unknown',
     ip,
     ...details,
@@ -35,7 +34,7 @@ export const logAuditFailure = async (
   logError('audit_event_failed', error, {
     event,
     actor: session?.username ?? 'unknown',
-    role: session?.role ?? 'unknown',
+    role: 'owner',
     source: session?.source ?? 'unknown',
     ip,
     ...details,

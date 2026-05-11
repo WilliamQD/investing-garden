@@ -14,7 +14,6 @@ export async function GET() {
     isAuthenticated: true,
     canWrite: session.canWrite,
     username: session.username,
-    role: session.role,
   });
   const rotatedCookie = getSessionRotationCookie(session);
   if (rotatedCookie) {

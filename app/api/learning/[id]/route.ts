@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getAuthorizedSession } from '@/lib/auth';
 import { logAuditEvent } from '@/lib/audit';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { requireOwnerSession } from '@/lib/route-auth';
 import { storage } from '@/lib/storage';
 import { normalizeEntryInput } from '@/lib/validation';
 
@@ -12,6 +13,8 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
+    const owner = await requireOwnerSession();
+    if (!owner.ok) return owner.response;
     const entry = await storage.getById('learning', id);
     if (!entry) {
       return NextResponse.json({ error: 'Entry not found' }, { status: 404 });

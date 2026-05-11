@@ -11,7 +11,8 @@ A personal portfolio tracker for monitoring holdings, logging trades, and organi
 - **Journal**: Document trade rationale, emotions, and outcomes with markdown support
 - **Knowledge hub**: Organize learning notes and external resources
 - **Backup & restore**: Full data export/import (JSON or ZIP) covering journal, knowledge, holdings, trades, settings, and snapshots
-- **Admin sessions**: Credential-based authentication with signed HttpOnly session cookies
+- **Owner sessions**: Single-owner authentication with signed HttpOnly session cookies
+- **Assistant ingest API**: Machine-authenticated endpoint for Codex-managed notes, resources, and user-reported executed trades
 - **Market data**: Twelve Data quotes with server-side caching
 
 ## Tech Stack
@@ -20,7 +21,7 @@ A personal portfolio tracker for monitoring holdings, logging trades, and organi
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS 4 + custom CSS
 - **Storage**: Vercel Postgres (Neon)
-- **Auth**: Credential-based with HMAC-SHA256 signed sessions
+- **Auth**: Single-owner credential with HMAC-SHA256 signed sessions
 - **Data fetching**: SWR (client), Twelve Data API (market quotes)
 - **Signal microservice**: FastAPI (Python) for momentum + RSI scoring (optional)
 
@@ -46,13 +47,14 @@ pnpm install
 3. Create a `.env.local` file with the required secrets:
 ```bash
 POSTGRES_URL=your_postgres_connection_string
-ADMIN_CREDENTIALS=[{"username":"owner","password":"a-very-long-password","role":"admin"}]
+ADMIN_USERNAME=owner
+ADMIN_PASSWORD=a-very-long-password
 ADMIN_SESSION_SECRET=long_random_secret_at_least_16_chars
+ASSISTANT_INGEST_TOKEN=long_random_machine_token_at_least_16_chars
 TWELVE_DATA_API_KEY=your_twelve_data_key
 ```
-Use `ADMIN_CREDENTIALS` to define approved editor accounts (roles: `admin`, `editor`, `viewer`). `ADMIN_SESSION_SECRET` signs secure admin sessions and must be at least 16 characters.
-
-If you still prefer a single-token setup, set `ADMIN_TOKEN` (legacy fallback) and use username `admin`.
+Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` for the single owner account. `ADMIN_SESSION_SECRET` signs secure session cookies and must be at least 16 characters.
+Set `ASSISTANT_INGEST_TOKEN` only when enabling Codex-to-site writes. Keep it out of git and configure it separately in Vercel. `IG_ASSISTANT_INGEST_TOKEN` is also accepted for projects that keep the existing `IG_` prefix convention.
 
 Optional tuning:
 ```bash
@@ -79,7 +81,20 @@ pnpm start
 
 ### Admin access
 
-Click the Visitor/Admin pill in the header, enter approved credentials, and sign in. Admin mode unlocks trade logging, holding management, journal/knowledge editing, and backup/restore. Sessions expire when the browser is closed.
+Click the Visitor/Owner pill in the header, enter owner credentials, and sign in. Portfolio data, trade history, journal entries, knowledge notes, resources, settings, stats, and backups are owner-only. Sessions expire after 12 hours.
+
+### Assistant ingest
+
+Codex can write selected production data through `POST /api/assistant/ingest` when the request includes `Authorization: Bearer <ASSISTANT_INGEST_TOKEN>`.
+
+Supported v1 actions:
+- `trade.create` for user-reported executed trades
+- `learning.create` and `learning.upsertByTitle`
+- `resource.create`
+- `journal.create`
+- `settings.cash.adjust`
+
+Every assistant request must include an `idempotencyKey` so retries do not duplicate records.
 
 ### Dashboard
 
@@ -166,6 +181,9 @@ investing-garden/
 - `POST /api/auth/login` — Authenticate with credentials
 - `POST /api/auth/logout` — Clear session
 - `GET /api/auth/session` — Check session status (with auto-rotation)
+
+### Assistant
+- `POST /api/assistant/ingest` — Machine-authenticated Codex ingest endpoint
 
 ### Journal
 - `GET /api/journal` — List all journal entries

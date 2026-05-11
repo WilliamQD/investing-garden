@@ -5,7 +5,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 type AdminContextValue = {
   isAuthenticated: boolean;
   canWrite: boolean;
-  role: string;
   username: string;
   login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -17,7 +16,6 @@ const AdminContext = createContext<AdminContextValue | null>(null);
 export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [canWrite, setCanWrite] = useState(false);
-  const [role, setRole] = useState('');
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -27,19 +25,16 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       if (!response.ok) {
         setIsAuthenticated(false);
         setCanWrite(false);
-        setRole('');
         setUsername('');
         return;
       }
       const data = await response.json();
       setIsAuthenticated(Boolean(data.isAuthenticated));
       setCanWrite(Boolean(data.canWrite));
-      setRole(typeof data.role === 'string' ? data.role : '');
       setUsername(typeof data.username === 'string' ? data.username : '');
     } catch {
       setIsAuthenticated(false);
       setCanWrite(false);
-      setRole('');
       setUsername('');
     } finally {
       setLoading(false);
@@ -67,7 +62,6 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       }
       setIsAuthenticated(true);
       setCanWrite(Boolean(data.canWrite));
-      setRole(typeof data.role === 'string' ? data.role : '');
       setUsername(typeof data.username === 'string' ? data.username : nextUsername);
       return { ok: true };
     } catch {
@@ -84,7 +78,6 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsAuthenticated(false);
       setCanWrite(false);
-      setRole('');
       setUsername('');
     }
   }, []);
@@ -93,13 +86,12 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     () => ({
       isAuthenticated,
       canWrite,
-      role,
       username,
       login,
       logout,
       loading,
     }),
-    [canWrite, isAuthenticated, loading, login, logout, role, username]
+    [canWrite, isAuthenticated, loading, login, logout, username]
   );
 
   return <AdminContext.Provider value={contextValue}>{children}</AdminContext.Provider>;

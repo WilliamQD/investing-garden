@@ -48,18 +48,6 @@ export default function HoldingsSection({
   const handleQuoteUpdate = useCallback((ticker: string, data: MarketData) => {
     setQuotes(prev => ({ ...prev, [ticker]: data }));
   }, []);
-  useEffect(() => {
-    setQuotes(prev => {
-      const next = { ...prev };
-      const tickers = new Set(holdings.map(holding => holding.ticker));
-      Object.keys(next).forEach(key => {
-        if (!tickers.has(key)) {
-          delete next[key];
-        }
-      });
-      return next;
-    });
-  }, [holdings]);
   const isFiniteNumber = (value: unknown): value is number =>
     typeof value === 'number' && Number.isFinite(value);
   const holdingsSummary = useMemo(() => {

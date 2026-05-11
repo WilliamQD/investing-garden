@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useAdmin } from '@/lib/admin-client';
 
 export default function AuthControls() {
-  const { canWrite, isAuthenticated, role, username, login, logout, loading } = useAdmin();
+  const { isAuthenticated, username, login, logout, loading } = useAdmin();
   const [draftUsername, setDraftUsername] = useState('');
   const [draftPassword, setDraftPassword] = useState('');
   const [status, setStatus] = useState('');
@@ -42,15 +42,15 @@ export default function AuthControls() {
         disabled={loading}
       >
         <span className={`auth-dot ${isAuthenticated ? 'auth-dot-active' : ''}`} />
-        {canWrite ? 'Admin' : isAuthenticated ? 'Viewer' : 'Visitor'}
+        {isAuthenticated ? 'Owner' : 'Visitor'}
       </button>
       {isOpen && (
         <div className="auth-popover">
           <div className="auth-popover-header">
             <div>
-              <p className="auth-title">Admin access</p>
+              <p className="auth-title">Owner access</p>
               <p className="auth-caption">
-                Sign in with approved credentials to unlock edit permissions.
+                Sign in with owner credentials to unlock edit permissions.
               </p>
             </div>
             <button
@@ -64,13 +64,11 @@ export default function AuthControls() {
           </div>
           <div className="auth-status">
             <p className="auth-status-title">
-              {canWrite ? 'Admin mode active' : isAuthenticated ? 'Signed in (read-only)' : 'Visitor mode'}
+              {isAuthenticated ? 'Owner mode active' : 'Visitor mode'}
             </p>
             <p className="auth-status-sub">
-              {canWrite
-                ? `Logged in as ${username || 'admin'} · edits enabled.`
-                : isAuthenticated
-                  ? `Signed in as ${username || 'user'} · role ${role || 'viewer'}.`
+              {isAuthenticated
+                ? `Logged in as ${username || 'owner'} · edits enabled.`
                 : 'Read-only mode. Sign in to edit.'}
             </p>
           </div>

@@ -4,10 +4,13 @@ import { getAuthorizedSession } from '@/lib/auth';
 import { logAuditEvent } from '@/lib/audit';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { getSiteSettings, updateSiteSettings } from '@/lib/portfolio';
+import { requireOwnerSession } from '@/lib/route-auth';
 import { normalizeSettingsInput } from '@/lib/validation';
 
 export async function GET() {
   try {
+    const owner = await requireOwnerSession();
+    if (!owner.ok) return owner.response;
     const settings = await getSiteSettings();
     return NextResponse.json(settings);
   } catch (error) {

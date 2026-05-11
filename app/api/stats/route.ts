@@ -1,6 +1,7 @@
 import { sql } from '@vercel/postgres';
 import { NextResponse } from 'next/server';
 
+import { requireOwnerSession } from '@/lib/route-auth';
 import { storage } from '@/lib/storage';
 
 const getCount = (value: unknown) => {
@@ -13,6 +14,8 @@ const STATS_CACHE_HEADER = `s-maxage=${STATS_CACHE_SECONDS}, stale-while-revalid
 
 export async function GET() {
   try {
+    const owner = await requireOwnerSession();
+    if (!owner.ok) return owner.response;
     await storage.initialize();
 
     const totalsResult = await sql`

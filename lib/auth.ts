@@ -16,77 +16,25 @@ const MAX_LOGIN_ATTEMPTS_MAP_SIZE = 1000;
 
 const loginAttempts = new Map<string, { count: number; firstAttemptAt: number }>();
 
-type Role = 'admin' | 'editor' | 'viewer';
-
-type AdminCredential = {
-  username: string;
-  password: string;
-  role: Role;
-};
-
-const ROLE_PERMISSIONS: Record<Role, { canWrite: boolean }> = {
-  admin: { canWrite: true },
-  editor: { canWrite: true },
-  viewer: { canWrite: false },
-};
-
-const normalizeRole = (value: unknown, fallback: Role = 'viewer'): Role => {
-  if (value === 'admin' || value === 'editor' || value === 'viewer') {
-    return value;
-  }
-  return fallback;
-};
-
-const normalizeCredential = (credential: unknown): AdminCredential | null => {
-  if (!credential || typeof credential !== 'object' || Array.isArray(credential)) {
-    return null;
-  }
-  const username = typeof (credential as AdminCredential).username === 'string'
-    ? (credential as AdminCredential).username.trim()
-    : '';
-  const password = typeof (credential as AdminCredential).password === 'string'
-    ? (credential as AdminCredential).password
-    : '';
+const getOwnerCredential = (): { username: string; password: string } | null => {
+  const username = (process.env.ADMIN_USERNAME ?? '').trim();
+  const password = process.env.ADMIN_PASSWORD ?? '';
   if (!username || !password) return null;
   if (password.length < MIN_PASSWORD_LENGTH) {
-    console.warn(`Admin credential for "${username}" has password shorter than ${MIN_PASSWORD_LENGTH} characters; skipping.`);
+    console.warn(`ADMIN_PASSWORD shorter than ${MIN_PASSWORD_LENGTH} chars; write actions disabled.`);
     return null;
   }
-  const role = normalizeRole((credential as AdminCredential).role, 'admin');
-  return { username, password, role };
+  return { username, password };
 };
 
-const parseCredentialList = (): AdminCredential[] => {
-  const rawList = process.env.ADMIN_CREDENTIALS;
-  if (rawList) {
-    try {
-      const parsed = JSON.parse(rawList);
-      if (!Array.isArray(parsed)) return [];
-      return parsed
-        .map(normalizeCredential)
-        .filter((credential): credential is AdminCredential => Boolean(credential));
-    } catch {
-      console.warn('ADMIN_CREDENTIALS is not valid JSON; falling back to ADMIN_TOKEN if provided.');
-    }
-  }
-
-  const fallbackToken = process.env.ADMIN_TOKEN ?? '';
-  if (!fallbackToken) return [];
-  if (fallbackToken.length < MIN_PASSWORD_LENGTH) {
-    console.warn(`ADMIN_TOKEN is shorter than ${MIN_PASSWORD_LENGTH} characters; write actions disabled.`);
-    return [];
-  }
-  return [{ username: 'admin', password: fallbackToken, role: 'admin' }];
-};
-
-const adminCredentials = parseCredentialList();
-if (!adminCredentials.length) {
-  console.warn('No admin credentials configured. Write actions are disabled.');
+const ownerCredential = getOwnerCredential();
+if (!ownerCredential) {
+  console.warn('No owner credentials configured (ADMIN_USERNAME + ADMIN_PASSWORD). Write actions disabled.');
 }
 
-const sessionSecret = process.env.ADMIN_SESSION_SECRET ?? process.env.ADMIN_TOKEN ?? '';
+const sessionSecret = process.env.ADMIN_SESSION_SECRET ?? '';
 if (sessionSecret && sessionSecret.length < MIN_SECRET_LENGTH) {
-  throw new Error(`ADMIN_SESSION_SECRET (or ADMIN_TOKEN fallback) must be at least ${MIN_SECRET_LENGTH} characters.`);
+  throw new Error(`ADMIN_SESSION_SECRET must be at least ${MIN_SECRET_LENGTH} characters.`);
 }
 
 const canIssueSession = sessionSecret.length >= MIN_SECRET_LENGTH;
@@ -101,8 +49,8 @@ const safeEquals = (left: string, right: string) => {
   return timingSafeEqual(leftBuffer, rightBuffer);
 };
 
-const toSessionCookie = (username: string, role: Role, expiresAt: number) => {
-  const payload = `${username}:${role}:${expiresAt}`;
+const toSessionCookie = (username: string, expiresAt: number) => {
+  const payload = `${username}:${expiresAt}`;
   const signature = signSession(payload);
   return `${payload}:${signature}`;
 };
@@ -116,14 +64,13 @@ const parseSessionCookie = (value: string) => {
   const expectedSignature = signSession(payload);
   if (!safeEquals(signature, expectedSignature)) return null;
 
-  const parts = payload.split(':');
-  if (parts.length < 2 || parts.length > 3) return null;
-  const [username, roleOrExpires, expiresAtText] = parts;
-  const role = parts.length === 3 ? normalizeRole(roleOrExpires) : 'viewer';
-  const expiresAt = Number(parts.length === 3 ? expiresAtText : roleOrExpires);
+  const colonIndex = payload.lastIndexOf(':');
+  if (colonIndex === -1) return null;
+  const username = payload.slice(0, colonIndex);
+  const expiresAt = Number(payload.slice(colonIndex + 1));
   if (!username || !Number.isFinite(expiresAt)) return null;
   if (expiresAt < Date.now()) return null;
-  return { username, role, expiresAt };
+  return { username, expiresAt };
 };
 
 const validateIpAddress = (ip: string): string | null => {
@@ -131,12 +78,12 @@ const validateIpAddress = (ip: string): string | null => {
   // Note: IPv6 validation is intentionally simplified and may not catch all edge cases
   const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
   const ipv6Regex = /^[0-9a-f:]+$/i;
-  
+
   if (!ip || ip === 'unknown') return null;
-  
+
   // Limit length to prevent abuse
   if (ip.length > 45) return null; // Max IPv6 length is 45
-  
+
   if (ipv4Regex.test(ip)) {
     // Validate IPv4 octets are 0-255 and reject leading zeros
     const octets = ip.split('.');
@@ -149,31 +96,31 @@ const validateIpAddress = (ip: string): string | null => {
       return ip;
     }
   }
-  
+
   // Basic IPv6 check: contains colons and only hex characters
   if (ip.includes(':') && ipv6Regex.test(ip) && ip.split(':').length >= 3) {
     return ip;
   }
-  
+
   return null;
 };
 
 const evictOldLoginAttempts = () => {
   if (loginAttempts.size <= MAX_LOGIN_ATTEMPTS_MAP_SIZE) return;
-  
+
   const now = Date.now();
   const keysToDelete: string[] = [];
-  
+
   for (const [key, attempt] of loginAttempts.entries()) {
     if (now - attempt.firstAttemptAt > loginWindowMs) {
       keysToDelete.push(key);
     }
   }
-  
+
   for (const key of keysToDelete) {
     loginAttempts.delete(key);
   }
-  
+
   // If still too large, delete oldest entries
   if (loginAttempts.size > MAX_LOGIN_ATTEMPTS_MAP_SIZE) {
     const entries = Array.from(loginAttempts.entries())
@@ -187,10 +134,10 @@ const evictOldLoginAttempts = () => {
 
 export const getRequestIp = async () => {
   const headerList = await headers();
-  
+
   // Only trust forwarded headers in production or if explicitly enabled
   const trustProxy = process.env.TRUST_PROXY === 'true' || process.env.NODE_ENV === 'production';
-  
+
   if (trustProxy) {
     const forwarded = headerList.get('x-forwarded-for');
     if (forwarded) {
@@ -198,14 +145,14 @@ export const getRequestIp = async () => {
       const validated = validateIpAddress(firstIp);
       if (validated) return validated;
     }
-    
+
     const realIp = headerList.get('x-real-ip');
     if (realIp) {
       const validated = validateIpAddress(realIp.trim());
       if (validated) return validated;
     }
   }
-  
+
   return 'unknown';
 };
 
@@ -240,21 +187,17 @@ export const clearLoginAttempts = async () => {
 };
 
 export const verifyCredentials = (username: string, password: string) => {
+  if (!ownerCredential) return null;
   const normalizedUsername = username.trim();
   if (!normalizedUsername || !password) return null;
-  const credential = adminCredentials.find(credential => {
-    if (!safeEquals(credential.username, normalizedUsername)) {
-      return false;
-    }
-    return safeEquals(credential.password, password);
-  });
-  if (!credential) return null;
-  return { username: credential.username, role: credential.role };
+  if (!safeEquals(ownerCredential.username, normalizedUsername)) return null;
+  if (!safeEquals(ownerCredential.password, password)) return null;
+  return { username: ownerCredential.username };
 };
 
-export const createSessionCookieValue = (username: string, role: Role) => {
+export const createSessionCookieValue = (username: string) => {
   if (!canIssueSession) return null;
-  return toSessionCookie(username.trim(), normalizeRole(role, 'viewer'), Date.now() + SESSION_TTL_MS);
+  return toSessionCookie(username.trim(), Date.now() + SESSION_TTL_MS);
 };
 
 export const clearSessionCookie = async () => {
@@ -270,50 +213,16 @@ const getCookieSession = async () => {
   return parseSessionCookie(rawSession);
 };
 
-const getHeaderToken = async () => {
-  const headerList = await headers();
-  return headerList.get('x-admin-token')?.trim() ?? '';
-};
-
-const getRolePermissions = (role: Role) => ROLE_PERMISSIONS[normalizeRole(role)];
-
-export const getRolePermissionsForRole = (role: Role) => getRolePermissions(role);
-
 export const getAuthorizedSession = async () => {
   const cookieSession = await getCookieSession();
-  if (cookieSession) {
-    const permissions = getRolePermissions(cookieSession.role);
-    return {
-      isAuthenticated: true,
-      username: cookieSession.username,
-      role: cookieSession.role,
-      canWrite: permissions.canWrite,
-      expiresAt: cookieSession.expiresAt,
-      source: 'cookie' as const,
-    };
-  }
-
-  const token = await getHeaderToken();
-  if (!token) return null;
-  const matchesTokenCredential = adminCredentials.find(credential =>
-    safeEquals(credential.password, token)
-  );
-  if (!matchesTokenCredential) return null;
-  const permissions = getRolePermissions(matchesTokenCredential.role);
+  if (!cookieSession) return null;
   return {
     isAuthenticated: true,
-    username: matchesTokenCredential.username || 'header-admin',
-    role: matchesTokenCredential.role,
-    canWrite: permissions.canWrite,
-    expiresAt: null,
-    source: 'header' as const,
+    username: cookieSession.username,
+    canWrite: true,
+    expiresAt: cookieSession.expiresAt,
+    source: 'cookie' as const,
   };
-};
-
-export const requireWriteAccess = async () => {
-  const session = await getAuthorizedSession();
-  if (!session?.canWrite) return null;
-  return session;
 };
 
 export const getSessionRotationCookie = (session: Awaited<ReturnType<typeof getAuthorizedSession>>) => {
@@ -322,7 +231,7 @@ export const getSessionRotationCookie = (session: Awaited<ReturnType<typeof getA
   if (session.expiresAt - Date.now() > SESSION_ROTATION_THRESHOLD_MS) {
     return null;
   }
-  return createSessionCookieValue(session.username, session.role);
+  return createSessionCookieValue(session.username);
 };
 
 export const getSessionCookieName = () => SESSION_COOKIE_NAME;

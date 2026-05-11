@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid credentials.' }, { status: 401 });
   }
 
-  const cookieValue = createSessionCookieValue(credential.username, credential.role);
+  const cookieValue = createSessionCookieValue(credential.username);
   if (!cookieValue) {
     return NextResponse.json(
       { error: 'Server auth session is not configured.' },
@@ -54,8 +54,7 @@ export async function POST(request: Request) {
   const response = NextResponse.json({
     success: true,
     username: credential.username,
-    role: credential.role,
-    canWrite: credential.role !== 'viewer',
+    canWrite: true,
     isAuthenticated: true,
   });
   response.cookies.set(getSessionCookieName(), cookieValue, {
