@@ -16,7 +16,7 @@ const nextConfig = {
               object-src 'none';
               base-uri 'self';
               form-action 'self';
-              frame-ancestors 'none';
+              frame-ancestors 'self' https://vercel.com https://*.vercel.com;
               upgrade-insecure-requests;
             `.replace(/\s{2,}/g, ' ').trim(),
           },
